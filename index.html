@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Product Sheet Generator - Local Files</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <script>
+        // Define these functions globally BEFORE the Google scripts load
+        window.gapiInited = false;
+        window.gisInited = false;
+        
+        function gapiLoaded() {
+            console.log('✓ GAPI script loaded');
+            window.gapiInited = true;
+        }
+        
+        function gisLoaded() {
+            console.log('✓ GIS script loaded');
+            window.gisInited = true;
+        }
+    </script>
+    
     <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
     <style>
@@ -954,65 +971,75 @@
         let accessToken = null;
         let driveFilesCache = []; // Cache of files from Drive
 
-        // IMPORTANT: These functions MUST be defined before the scripts load
-        // They are called by the onload attributes in the script tags
-        
-        function gapiLoaded() {
-            console.log('✓ GAPI script loaded');
-            gapi.load('client', async () => {
-                try {
-                    await gapi.client.init({
-                        apiKey: API_KEY,
-                        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+        // Initialize Google API once the page loads
+        window.addEventListener('load', function() {
+            console.log('Page loaded, checking API status...');
+            
+            // Check if scripts loaded
+            let checkCount = 0;
+            const checkInterval = setInterval(() => {
+                checkCount++;
+                
+                // Initialize GAPI if script is loaded
+                if (window.gapiInited && typeof gapi !== 'undefined' && !gapiInited) {
+                    console.log('Initializing Google API client...');
+                    gapi.load('client', async () => {
+                        try {
+                            await gapi.client.init({
+                                apiKey: API_KEY,
+                                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                            });
+                            gapiInited = true;
+                            console.log('✓ Google API client initialized');
+                            checkAndConnect();
+                        } catch (error) {
+                            console.error('Error initializing Google API:', error);
+                            showMessage('error', 'Failed to initialize Google API: ' + error.message);
+                        }
                     });
-                    gapiInited = true;
-                    console.log('✓ Google API client initialized');
-                    checkAndConnect();
-                } catch (error) {
-                    console.error('Error initializing Google API:', error);
-                    if (typeof showMessage === 'function') {
-                        showMessage('error', 'Failed to initialize Google API: ' + error.message);
+                }
+                
+                // Initialize GIS if script is loaded
+                if (window.gisInited && typeof google !== 'undefined' && google.accounts && !gisInited) {
+                    console.log('Initializing Google Identity Services...');
+                    try {
+                        tokenClient = google.accounts.oauth2.initTokenClient({
+                            client_id: CLIENT_ID,
+                            scope: SCOPES,
+                            callback: '', // defined later
+                        });
+                        gisInited = true;
+                        console.log('✓ Google Identity Services initialized');
+                        checkAndConnect();
+                    } catch (error) {
+                        console.error('Error initializing GIS:', error);
+                        showMessage('error', 'Failed to initialize Google Identity Services: ' + error.message);
                     }
                 }
-            });
-        }
-
-        function gisLoaded() {
-            console.log('✓ GIS script loaded');
-            try {
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID,
-                    scope: SCOPES,
-                    callback: '', // defined later
-                });
-                gisInited = true;
-                console.log('✓ Google Identity Services initialized');
-                checkAndConnect();
-            } catch (error) {
-                console.error('Error initializing GIS:', error);
-                if (typeof showMessage === 'function') {
-                    showMessage('error', 'Failed to initialize Google Identity Services: ' + error.message);
+                
+                // Stop checking after both initialized or timeout
+                if ((gapiInited && gisInited) || checkCount > 20) {
+                    clearInterval(checkInterval);
+                    if (gapiInited && gisInited) {
+                        console.log('✓ All APIs ready!');
+                        console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
+                    } else {
+                        console.warn('⚠ APIs failed to initialize. gapi:', gapiInited, 'gis:', gisInited);
+                        showMessage('error', 'Google APIs failed to load. Please refresh the page.');
+                    }
                 }
-            }
-        }
+            }, 500);
+        });
 
         function checkAndConnect() {
             if (gapiInited && gisInited) {
                 console.log('✓ All APIs ready!');
                 console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
                 
-                if (typeof showMessage === 'function') {
-                    showMessage('success', 'Google Drive ready. Connecting...');
-                }
-                
-                // Auto-connect after a short delay
                 setTimeout(() => {
-                    if (typeof connectToGoogleDrive === 'function') {
-                        connectToGoogleDrive();
-                    }
+                    showMessage('success', 'Google Drive ready. Connecting...');
+                    connectToGoogleDrive();
                 }, 1000);
-            } else {
-                console.log('Waiting for APIs... gapi:', gapiInited, 'gis:', gisInited);
             }
         }
 
