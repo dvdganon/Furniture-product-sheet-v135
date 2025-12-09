@@ -1,0 +1,2250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Sheet Generator - Local Files</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <script>
+        // Define these functions globally BEFORE the Google scripts load
+        window.gapiInited = false;
+        window.gisInited = false;
+        
+        function gapiLoaded() {
+            console.log('✓ GAPI script loaded');
+            window.gapiInited = true;
+        }
+        
+        function gisLoaded() {
+            console.log('✓ GIS script loaded');
+            window.gisInited = true;
+        }
+    </script>
+    
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .input-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .upload-area {
+            border: 3px dashed #2196F3;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            background: #e3f2fd;
+            border-color: #1976D2;
+        }
+
+        .upload-area.dragover {
+            background: #bbdefb;
+            border-color: #0d47a1;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .upload-subtext {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        button {
+            padding: 12px 30px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #1976D2;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .print-btn {
+            background: #4CAF50;
+        }
+
+        .print-btn:hover {
+            background: #45a049;
+        }
+
+        .clear-btn {
+            background: #f44336;
+        }
+
+        .clear-btn:hover {
+            background: #d32f2f;
+        }
+
+        .product-sheet {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .product-sheet.active {
+            display: block;
+        }
+
+        .header {
+            border-bottom: 3px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .doc-title {
+            font-size: 18px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .product-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .info-section h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-label {
+            font-weight: bold;
+            width: 150px;
+            color: #555;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        .drawing-section {
+            margin-top: 30px;
+        }
+
+        .pdf-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+
+        .pdf-controls button {
+            padding: 8px 20px;
+            font-size: 14px;
+        }
+
+        .page-info {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .pdf-canvas-container {
+            text-align: center;
+            background: #f9f9f9;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            overflow: auto;
+        }
+
+        .pdf-canvas {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .loading-pdf {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2196F3;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .message.active {
+            display: block;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .info-message {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        /* Field validation styles */
+        select.required-field {
+            border: 2px solid #f44336 !important;
+            background-color: #ffebee;
+        }
+
+        select.valid-field {
+            border: 2px solid #4CAF50 !important;
+            background-color: #e8f5e9;
+        }
+
+        select:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .files-list {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f0f7ff;
+            border-radius: 4px;
+        }
+
+        .files-list-title {
+            font-weight: bold;
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+
+        .file-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-item:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+        }
+
+        .file-item.active {
+            background: #bbdefb;
+            font-weight: bold;
+        }
+
+        .file-name {
+            font-weight: 500;
+        }
+
+        .file-size {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .content-wrapper {
+            position: relative;
+            margin-top: 30px;
+        }
+
+        .bottom-filename-container {
+            position: absolute;
+            bottom: 12%;
+            left: 5%;
+            width: 40%;
+            z-index: 10;
+            background: transparent;
+            padding: 0;
+        }
+
+        .left-section {
+            position: absolute;
+            top: 10%;
+            left: 5%;
+            width: 40%;
+            max-width: 40%;
+            z-index: 10;
+            background: transparent;
+            padding: 0;
+        }
+
+        .right-section {
+            width: 100%;
+        }
+
+        .category-table-container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 0;
+            background: transparent;
+        }
+
+        .category-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            direction: rtl;
+            text-align: right;
+        }
+
+        .category-table th,
+        .category-table td {
+            border: 2px solid #333;
+            padding: 6px;
+        }
+
+        .category-table .table-header {
+            background: #d0d0d0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .category-table-select {
+            width: 100%;
+            border: none;
+            padding: 4px;
+            font-size: 13px;
+            background: white;
+            text-align: right;
+            direction: rtl;
+            cursor: pointer;
+            border-radius: 0;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+
+        .category-table-select:focus {
+            outline: none;
+            background: #f0f7ff;
+        }
+
+        .category-table tr td:nth-child(1) {
+            width: 50px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+            background: #f5f5f5;
+        }
+
+        .category-table tr td:nth-child(2) {
+            text-align: center;
+            font-weight: normal;
+        }
+
+        .category-table tr td:nth-child(3) {
+            text-align: center;
+            font-weight: normal;
+        }
+
+        .editable-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            font-size: 10px;
+            direction: rtl;
+            text-align: right;
+            background: white;
+            table-layout: auto;
+        }
+
+        .editable-table th,
+        .editable-table td {
+            border: 1px solid #333;
+            padding: 3px 4px;
+            overflow: visible;
+            white-space: nowrap;
+        }
+
+        .editable-table th {
+            background: #f5f5f5;
+            font-weight: bold;
+        }
+
+        .editable-table input {
+            width: auto;
+            min-width: 30px;
+            max-width: none;
+            border: none;
+            padding: 2px;
+            font-size: 10px;
+            background: transparent;
+            text-align: right;
+            box-sizing: border-box;
+            text-transform: uppercase;
+        }
+
+        .editable-table input:focus {
+            outline: 2px solid #2196F3;
+            background: #fff3e0;
+        }
+
+        .table-header {
+            background: #e0e0e0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .input-section {
+                display: none;
+            }
+
+            .product-sheet {
+                padding: 0;
+                margin: 0;
+            }
+
+            .pdf-controls {
+                display: none;
+            }
+
+            .product-info {
+                display: none;
+            }
+
+            .header {
+                display: none;
+            }
+
+            .left-section {
+                background: transparent !important;
+                width: 40% !important;
+                max-width: 40% !important;
+                position: absolute !important;
+                top: 10% !important;
+                left: 5% !important;
+                padding: 0 !important;
+            }
+
+            .bottom-filename-container {
+                background: transparent !important;
+                position: absolute !important;
+                bottom: 12% !important;
+                left: 5% !important;
+                padding: 0 !important;
+            }
+
+            .category-table-container {
+                display: block !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+
+            .content-wrapper {
+                margin: 0;
+                padding: 0;
+            }
+
+            .editable-table {
+                font-size: 10px !important;
+            }
+
+            .editable-table input {
+                font-size: 10px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="input-section">
+            <h1 style="margin-bottom: 20px; color: #333;">Product Sheet Generator - Local Files</h1>
+            
+            <details style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6;">
+                <summary style="cursor: pointer; font-weight: bold; color: #4285F4;">
+                    ⚙️ Google Drive Setup (Click to expand)
+                </summary>
+                <div style="margin-top: 10px; padding: 10px; font-size: 14px; line-height: 1.6;">
+                    <p><strong>To enable automatic Google Drive integration:</strong></p>
+                    <ol>
+                        <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+                        <li>Create a new project or select existing one</li>
+                        <li>Enable "Google Drive API"</li>
+                        <li>Create OAuth 2.0 Client ID credentials</li>
+                        <li>Create an API Key</li>
+                        <li>Get your shared folder ID:
+                            <ul>
+                                <li>Open your shared Google Drive folder in browser</li>
+                                <li>Copy the folder ID from URL: <code>https://drive.google.com/drive/folders/<strong>FOLDER_ID_HERE</strong></code></li>
+                            </ul>
+                        </li>
+                        <li>Edit this HTML file and replace:
+                            <ul>
+                                <li><code>CLIENT_ID = 'YOUR_CLIENT_ID'</code></li>
+                                <li><code>API_KEY = 'YOUR_API_KEY'</code></li>
+                                <li><code>SHARED_FOLDER_ID = 'YOUR_SHARED_FOLDER_ID'</code></li>
+                            </ul>
+                        </li>
+                        <li>Add your domain to authorized JavaScript origins (e.g., http://localhost, your domain)</li>
+                    </ol>
+                    <p style="color: #2e7d32; font-weight: bold;">Once configured, the app will automatically connect to your shared folder on page load!</p>
+                    <p style="color: #666; font-style: italic;">Without these credentials, you can still upload files manually from your computer.</p>
+                </div>
+            </details>
+            
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Click to select PDF files or drag and drop here</div>
+                <div class="upload-subtext">Upload multiple product PDFs from your computer</div>
+            </div>
+            
+            <div style="text-align: center; margin: 15px 0;">
+                <button onclick="openGoogleDrivePicker()" style="padding: 12px 30px; background: #4285F4; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">🔄</span>
+                    Connect to Google Drive
+                </button>
+                <p style="margin-top: 10px; font-size: 13px; color: #666;">Connects to your configured shared folder automatically</p>
+            </div>
+            
+            <input type="file" id="fileInput" accept=".pdf" multiple onchange="handleFiles(this.files)">
+
+            <div id="filesList" class="files-list" style="display: none;">
+                <div class="files-list-title">Loaded Files (click to view):</div>
+                <div id="filesContainer"></div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <div class="input-group">
+                    <input type="text" id="productCode" placeholder="Or enter product code to search loaded files" />
+                    <button onclick="searchProduct()">Search</button>
+                    <button class="print-btn" onclick="savePDF()">Save as PDF (Print)</button>
+                    <button class="clear-btn" onclick="clearFiles()">Clear All</button>
+                </div>
+            </div>
+
+            <div class="message error-message" id="errorMessage"></div>
+            <div class="message success-message" id="successMessage"></div>
+            <div class="message info-message active">
+                <strong>How to use:</strong><br>
+                1. Fill in the דגם table by selecting all required options<br>
+                2. Click "אשר והפק מקט ייצור + טען PDF" to generate the code<br>
+                3. Load PDFs from Google Drive or upload from your computer<br>
+                4. The system will search for matching PDFs automatically<br>
+                5. Edit the table fields and use "Save as PDF" to save your work
+            </div>
+            <div id="printInstructions" class="info-message" style="display: none; margin-top: 10px;">
+                <strong>To save as PDF:</strong><br>
+                1. In the print dialog, select "Save as PDF" as the printer<br>
+                2. Choose where to save the file<br>
+                3. Click Save
+            </div>
+        </div>
+
+        <div class="product-sheet active" id="productSheet">
+            <div class="header">
+                <div class="company-name">FURNITURE DESIGN CO.</div>
+                <div class="doc-title">Technical Product Sheet</div>
+            </div>
+
+            <div class="product-info">
+                <div class="info-section">
+                    <h2>Product Information</h2>
+                    <div class="info-row">
+                        <span class="info-label">Product Code:</span>
+                        <span class="info-value" id="code">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">File Name:</span>
+                        <span class="info-value" id="filename">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Source:</span>
+                        <span class="info-value">Local Computer</span>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h2>File Details</h2>
+                    <div class="info-row">
+                        <span class="info-label">File Size:</span>
+                        <span class="info-value" id="filesize">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Pages:</span>
+                        <span class="info-value" id="pagecount">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Last Modified:</span>
+                        <span class="info-value" id="modified">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-table-container">
+                <h3 style="text-align: right; direction: rtl; font-size: 14px; font-weight: bold; margin-bottom: 10px;">דגם:</h3>
+                <table class="category-table">
+                    <tr class="table-header">
+                        <td></td>
+                        <td>קטגוריה</td>
+                        <td>הזמנה</td>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td>שולחן</td>
+                        <td>
+                            <select class="category-table-select" id="table-type-select">
+                                <option value="">בחר...</option>
+                                <option value="קפיטריה">קפיטריה</option>
+                                <option value="ישיבות">ישיבות</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>צורה</td>
+                        <td>
+                            <select class="category-table-select" id="shape-select">
+                                <option value="">בחר...</option>
+                                <option value="עגול">עגול</option>
+                                <option value="מרובע">מרובע</option>
+                                <option value="אליפסה">אליפסה</option>
+                                <option value="מלבן">מלבן</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>רגל</td>
+                        <td>
+                            <select class="category-table-select" id="leg-select">
+                                <option value="">בחר...</option>
+                                <option value="konus">konus</option>
+                                <option value="sand">sand</option>
+                                <option value="tube">tube</option>
+                                <option value="oval">oval</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>אורך</td>
+                        <td>
+                            <select class="category-table-select" id="length-select">
+                                <option value="">בחר...</option>
+                                <option value="80">80</option>
+                                <option value="90">90</option>
+                                <option value="100">100</option>
+                                <option value="110">110</option>
+                                <option value="120">120</option>
+                                <option value="130">130</option>
+                                <option value="140">140</option>
+                                <option value="150">150</option>
+                                <option value="160">160</option>
+                                <option value="170">170</option>
+                                <option value="180">180</option>
+                                <option value="190">190</option>
+                                <option value="200">200</option>
+                                <option value="210">210</option>
+                                <option value="220">220</option>
+                                <option value="230">230</option>
+                                <option value="240">240</option>
+                                <option value="250">250</option>
+                                <option value="260">260</option>
+                                <option value="270">270</option>
+                                <option value="280">280</option>
+                                <option value="290">290</option>
+                                <option value="300">300</option>
+                                <option value="310">310</option>
+                                <option value="320">320</option>
+                                <option value="330">330</option>
+                                <option value="340">340</option>
+                                <option value="350">350</option>
+                                <option value="360">360</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td>רוחב</td>
+                        <td>
+                            <select class="category-table-select" id="width-select">
+                                <option value="">בחר...</option>
+                                <option value="80">80</option>
+                                <option value="90">90</option>
+                                <option value="100">100</option>
+                                <option value="110">110</option>
+                                <option value="120">120</option>
+                                <option value="130">130</option>
+                                <option value="140">140</option>
+                                <option value="150">150</option>
+                                <option value="160">160</option>
+                                <option value="170">170</option>
+                                <option value="180">180</option>
+                                <option value="190">190</option>
+                                <option value="200">200</option>
+                                <option value="210">210</option>
+                                <option value="220">220</option>
+                                <option value="230">230</option>
+                                <option value="240">240</option>
+                                <option value="250">250</option>
+                                <option value="260">260</option>
+                                <option value="270">270</option>
+                                <option value="280">280</option>
+                                <option value="290">290</option>
+                                <option value="300">300</option>
+                                <option value="310">310</option>
+                                <option value="320">320</option>
+                                <option value="330">330</option>
+                                <option value="340">340</option>
+                                <option value="350">350</option>
+                                <option value="360">360</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td>עובי פלטה</td>
+                        <td>
+                            <select class="category-table-select" id="wood-thickness-select">
+                                <option value="">בחר...</option>
+                                <option value="17">17</option>
+                                <option value="28">28</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td>מגרעת</td>
+                        <td>
+                            <select class="category-table-select" id="chamfer-select">
+                                <option value="">בחר...</option>
+                                <option value="0">0 - ללא מגרעת</option>
+                                <option value="4">4 - מגרעת מסביב (4 פינות)</option>
+                                <option value="שמאל">שמאל</option>
+                                <option value="ימין">ימין</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>8</td>
+                        <td>חשמל</td>
+                        <td>
+                            <select class="category-table-select" id="electricity-select">
+                                <option value="">בחר...</option>
+                                <option value="גדול (5)">גדול (5)</option>
+                                <option value="בינוני (3)">בינוני (3)</option>
+                                <option value="עיגול קטן (point)">עיגול קטן (point)</option>
+                                <option value="ללא">ללא</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>9</td>
+                        <td>צבע</td>
+                        <td>
+                            <select class="category-table-select" id="color-select">
+                                <option value="">בחר...</option>
+                                <option value="לבן">לבן</option>
+                                <option value="שחור">שחור</option>
+                                <option value="עץ טבעי">עץ טבעי</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" style="text-align: center; padding: 15px;">
+                            <button id="generateCodeBtn" onclick="generateAndSearchPDF()" style="padding: 12px 40px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer;">
+                                אשר והפק מקט ייצור + טען PDF
+                            </button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="content-wrapper">
+                <div class="left-section">
+                    <h3 style="text-align: right; direction: rtl; font-size: 14px; font-weight: bold; margin-bottom: 10px;">רכש:</h3>
+                    <table class="editable-table">
+                        <tr class="table-header">
+                            <td></td>
+                            <td>תיאור</td>
+                            <td>רכש מרכיב</td>
+                            <td>שרטוט</td>
+                            <td>גימור/עיבוד</td>
+                            <td>כמ</td>
+                            <td>סהכ</td>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td><input type="text" id="row1_desc" value="משטח עליון" /></td>
+                            <td><input type="text" id="row1_purchase" value="" /></td>
+                            <td><input type="text" id="row1_drawing" value="" /></td>
+                            <td><input type="text" id="row1_finish" value="" /></td>
+                            <td><input type="text" id="row1_qty" value="1" /></td>
+                            <td><input type="text" id="row1_total" value="X" /></td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td><input type="text" id="row2_desc" value="משטח תומך" /></td>
+                            <td><input type="text" id="row2_purchase" value="" /></td>
+                            <td><input type="text" id="row2_drawing" value="" /></td>
+                            <td><input type="text" id="row2_finish" value="BLACK/MK" /></td>
+                            <td><input type="text" id="row2_qty" value="1" /></td>
+                            <td><input type="text" id="row2_total" value="X" /></td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td><input type="text" id="row3_desc" value="רגל" /></td>
+                            <td><input type="text" id="row3_purchase" value="" /></td>
+                            <td><input type="text" id="row3_drawing" value="" /></td>
+                            <td><input type="text" id="row3_finish" value="" /></td>
+                            <td><input type="text" id="row3_qty" value="1" /></td>
+                            <td><input type="text" id="row3_total" value="X" /></td>
+                        </tr>
+                        <tr>
+                            <td>4</td>
+                            <td><input type="text" value="בורג חיבור 30" /></td>
+                            <td><input type="text" value="RP_BW4X30" /></td>
+                            <td><input type="text" value="" /></td>
+                            <td><input type="text" value="" /></td>
+                            <td><input type="text" value="16" /></td>
+                            <td><input type="text" value="X" /></td>
+                        </tr>
+                        <tr>
+                            <td>5</td>
+                            <td><input type="text" value="בורג חיבור 10" /></td>
+                            <td><input type="text" value="RP_BW4X10" /></td>
+                            <td><input type="text" value="" /></td>
+                            <td><input type="text" value="" /></td>
+                            <td><input type="text" value="20" /></td>
+                            <td><input type="text" value="X" /></td>
+                        </tr>
+                        <tr>
+                            <td>6</td>
+                            <td><input type="text" value="פלח חיבור 90/40" /></td>
+                            <td><input type="text" value="RP_FL90X40A" /></td>
+                            <td><input type="text" value="" /></td>
+                            <td><input type="text" value="" /></td>
+                            <td><input type="text" value="2" /></td>
+                            <td><input type="text" value="X" /></td>
+                        </tr>
+                    </table>
+
+                </div>
+
+                <div class="bottom-filename-container">
+                    <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; text-align: right; direction: rtl;">מקט ייצור:</label>
+                    <input type="text" id="bottomFilename" style="width: 100%; padding: 8px; border: 2px solid #333; border-radius: 4px; font-size: 12px; text-align: right; direction: rtl; text-transform: uppercase;" value="" />
+                </div>
+
+                <div class="right-section">
+                    <div class="drawing-section">
+                        <h2>Product Drawing / Documentation</h2>
+                        <div class="pdf-controls" id="pdfControls" style="display: none;">
+                            <button onclick="prevPage()">← Previous</button>
+                            <span class="page-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+                            <button onclick="nextPage()">Next →</button>
+                        </div>
+                        <div class="loading-pdf" style="display: none;" id="loadingPdf">
+                            <div class="spinner"></div>
+                            <div>Loading PDF...</div>
+                        </div>
+                        <div id="pdfContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Google Drive API Configuration
+        const CLIENT_ID = '463379854842-rmgq8npvks6cp8vk15bh391orhutp725.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyBNzojcJO9CXjNRw-U8eMIVM3Qi1dml52g';
+        const SHARED_FOLDER_ID = '1v3iI9-Hc0EvXq3X2hwsXipz0Kb2FH_0f';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let accessToken = null;
+        let driveFilesCache = []; // Cache of files from Drive
+
+        // Initialize Google API once the page loads
+        window.addEventListener('load', function() {
+            console.log('Page loaded, checking API status...');
+            
+            // Check if scripts loaded
+            let checkCount = 0;
+            const checkInterval = setInterval(() => {
+                checkCount++;
+                
+                // Initialize GAPI if script is loaded
+                if (window.gapiInited && typeof gapi !== 'undefined' && !gapiInited) {
+                    console.log('Initializing Google API client...');
+                    gapi.load('client', async () => {
+                        try {
+                            console.log('Setting API Key...');
+                            gapi.client.setApiKey(API_KEY);
+                            
+                            console.log('Loading Drive API v3...');
+                            await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+                            
+                            gapiInited = true;
+                            console.log('✓ Google API client initialized');
+                            console.log('✓ Google Drive API loaded');
+                            checkAndConnect();
+                        } catch (error) {
+                            console.error('Error initializing Google API:', error);
+                            console.error('Error details:', {
+                                message: error.message,
+                                status: error.status,
+                                result: error.result
+                            });
+                            
+                            // More specific error message
+                            let errorMsg = 'Failed to initialize Google API. ';
+                            if (error.status === 403) {
+                                errorMsg += 'API Key might be invalid or Google Drive API is not enabled.';
+                            } else if (error.status === 404) {
+                                errorMsg += 'Could not find Google Drive API.';
+                            } else {
+                                errorMsg += error.message;
+                            }
+                            
+                            showMessage('error', errorMsg);
+                            console.log('⚠️ Troubleshooting steps:');
+                            console.log('1. Verify Google Drive API is enabled: https://console.cloud.google.com/apis/library/drive.googleapis.com');
+                            console.log('2. Verify API Key is correct: ' + API_KEY);
+                            console.log('3. Check that API Key has no restrictions preventing Drive API access');
+                        }
+                    });
+                }
+                
+                // Initialize GIS if script is loaded
+                if (window.gisInited && typeof google !== 'undefined' && google.accounts && !gisInited) {
+                    console.log('Initializing Google Identity Services...');
+                    try {
+                        tokenClient = google.accounts.oauth2.initTokenClient({
+                            client_id: CLIENT_ID,
+                            scope: SCOPES,
+                            callback: '', // defined later
+                        });
+                        gisInited = true;
+                        console.log('✓ Google Identity Services initialized');
+                        checkAndConnect();
+                    } catch (error) {
+                        console.error('Error initializing GIS:', error);
+                        showMessage('error', 'Failed to initialize Google Identity Services: ' + error.message);
+                    }
+                }
+                
+                // Stop checking after both initialized or timeout
+                if ((gapiInited && gisInited) || checkCount > 20) {
+                    clearInterval(checkInterval);
+                    if (gapiInited && gisInited) {
+                        console.log('✓ All APIs ready!');
+                        console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
+                    } else {
+                        console.warn('⚠ APIs failed to initialize. gapi:', gapiInited, 'gis:', gisInited);
+                        if (!gapiInited) {
+                            showMessage('error', 'Google Drive API failed to load. Check console for details.');
+                        } else if (!gisInited) {
+                            showMessage('error', 'Google Sign-In failed to load. Check console for details.');
+                        }
+                    }
+                }
+            }, 500);
+        });
+
+        function checkAndConnect() {
+            if (gapiInited && gisInited) {
+                console.log('✓ All APIs ready!');
+                console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
+                
+                setTimeout(() => {
+                    showMessage('success', 'Google Drive ready. Connecting...');
+                    connectToGoogleDrive();
+                }, 1000);
+            }
+        }
+
+        // PDF.js configuration
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Auto-load files from shared folder on page load
+        function connectToGoogleDrive() {
+            if (!gapiInited || !gisInited) {
+                showMessage('error', 'Google Drive API not ready yet. Please wait a moment and try again.');
+                console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
+                return;
+            }
+
+            if (!tokenClient) {
+                showMessage('error', 'Token client not initialized. Please refresh the page.');
+                return;
+            }
+
+            showMessage('success', 'Connecting to Google Drive...');
+
+            tokenClient.callback = async (response) => {
+                if (response.error !== undefined) {
+                    console.error('Auth error:', response);
+                    showMessage('error', 'Failed to connect to Google Drive: ' + response.error);
+                    return;
+                }
+                accessToken = response.access_token;
+                await listFilesFromFolder();
+            };
+
+            if (accessToken === null) {
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            } else {
+                tokenClient.requestAccessToken({ prompt: '' });
+            }
+        }
+
+        async function listFilesFromFolder() {
+            try {
+                showMessage('success', 'Loading files from Google Drive...');
+                
+                console.log('Querying folder ID:', SHARED_FOLDER_ID);
+                
+                // Correct query for shared folders
+                // Include supportsAllDrives and includeItemsFromAllDrives for shared drives
+                const response = await gapi.client.drive.files.list({
+                    q: `'${SHARED_FOLDER_ID}' in parents and mimeType='application/pdf' and trashed=false`,
+                    fields: 'files(id, name, size, modifiedTime, mimeType)',
+                    pageSize: 1000,
+                    orderBy: 'name',
+                    supportsAllDrives: true,
+                    includeItemsFromAllDrives: true,
+                    corpora: 'allDrives' // Search in all drives including shared drives
+                });
+
+                driveFilesCache = response.result.files || [];
+                
+                console.log('API Response:', response.result);
+                console.log('Files found:', driveFilesCache.length);
+                
+                if (driveFilesCache.length === 0) {
+                    showMessage('error', 'No PDF files found in the folder. Make sure the folder is shared with your account and contains PDF files.');
+                    console.log('Troubleshooting:');
+                    console.log('1. Folder ID:', SHARED_FOLDER_ID);
+                    console.log('2. Make sure this folder is shared with your Google account');
+                    console.log('3. Make sure you have at least "Viewer" access');
+                    console.log('4. Check if the folder contains PDF files');
+                    return;
+                }
+
+                showMessage('success', `Found ${driveFilesCache.length} PDF files in Google Drive. Ready to search!`);
+                console.log('Files list:', driveFilesCache.map(f => f.name));
+                
+            } catch (error) {
+                console.error('Error listing files:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    status: error.status,
+                    result: error.result,
+                    body: error.body
+                });
+                
+                let errorMsg = 'Failed to load files from Google Drive. ';
+                
+                if (error.status === 404) {
+                    errorMsg += 'Folder not found or not accessible. Make sure the folder ID is correct and the folder is shared with your account.';
+                } else if (error.status === 403) {
+                    errorMsg += 'Access denied. Make sure the folder is shared with your Google account with at least "Viewer" permission.';
+                } else {
+                    errorMsg += error.message;
+                }
+                
+                showMessage('error', errorMsg);
+            }
+        }
+
+        function openGoogleDrivePicker() {
+            // Check if user needs to set up API credentials
+            if (CLIENT_ID === 'YOUR_CLIENT_ID' || API_KEY === 'YOUR_API_KEY' || SHARED_FOLDER_ID === 'YOUR_SHARED_FOLDER_ID') {
+                showMessage('error', 'Google Drive integration requires configuration. Please see the setup section above.');
+                return;
+            }
+
+            connectToGoogleDrive();
+        }
+
+        async function searchAndLoadFromDrive(productionCode) {
+            if (driveFilesCache.length === 0) {
+                showMessage('error', 'No files loaded from Google Drive. Click "Connect to Google Drive" button.');
+                return;
+            }
+
+            // Search for matching file
+            const codeUpper = productionCode.toUpperCase();
+            let foundFile = null;
+
+            for (const file of driveFilesCache) {
+                const fileNameUpper = file.name.toUpperCase().replace('.PDF', '');
+                
+                // Check if the filename contains or matches the production code
+                if (fileNameUpper.includes(codeUpper) || codeUpper.includes(fileNameUpper)) {
+                    foundFile = file;
+                    break;
+                }
+            }
+
+            if (foundFile) {
+                showMessage('success', `Found matching file: ${foundFile.name}. Downloading...`);
+                await downloadAndDisplayFromDrive(foundFile.id, foundFile.name);
+            } else {
+                showMessage('error', `No matching file found in Google Drive for: ${productionCode}`);
+                console.log('Available files:', driveFilesCache.map(f => f.name));
+            }
+        }
+
+        async function downloadAndDisplayFromDrive(fileId, fileName) {
+            try {
+                showMessage('success', `Downloading ${fileName}...`);
+                
+                const response = await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    alt: 'media',
+                    supportsAllDrives: true // Support shared drives
+                }, {
+                    responseType: 'arraybuffer'
+                });
+
+                // Convert to File object
+                const blob = new Blob([response.body], { type: 'application/pdf' });
+                const file = new File([blob], fileName, { 
+                    type: 'application/pdf',
+                    lastModified: Date.now()
+                });
+                
+                // Add to loaded files if not already there
+                if (!loadedFiles.find(f => f.name === file.name)) {
+                    loadedFiles.push(file);
+                    displayFilesList();
+                }
+                
+                // Display the file
+                const index = loadedFiles.findIndex(f => f.name === file.name);
+                if (index !== -1) {
+                    await displayFile(index);
+                    showMessage('success', `Loaded and displaying: ${fileName}`);
+                }
+                
+            } catch (error) {
+                console.error('Error downloading file:', error);
+                showMessage('error', `Failed to download file: ${fileName}. ${error.message}`);
+            }
+        }
+
+        let loadedFiles = [];
+        let currentPDF = null;
+        let currentPage = 1;
+        let totalPages = 0;
+        let currentFileIndex = -1;
+
+        const uploadArea = document.getElementById('uploadArea');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        function handleFiles(files) {
+            console.log('handleFiles called with:', files);
+            console.log('Number of files:', files.length);
+            
+            const pdfFiles = Array.from(files).filter(file => {
+                console.log('File:', file.name, 'Type:', file.type);
+                return file.type === 'application/pdf';
+            });
+            
+            console.log('PDF files found:', pdfFiles.length);
+            
+            if (pdfFiles.length === 0) {
+                showMessage('error', 'Please select PDF files only');
+                return;
+            }
+
+            pdfFiles.forEach(file => {
+                if (!loadedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                    loadedFiles.push(file);
+                    console.log('Added file:', file.name);
+                }
+            });
+
+            displayFilesList();
+            showMessage('success', `Loaded ${pdfFiles.length} PDF file(s). Total files: ${loadedFiles.length}`);
+        }
+
+        function displayFilesList() {
+            const container = document.getElementById('filesContainer');
+            const filesList = document.getElementById('filesList');
+            
+            if (loadedFiles.length === 0) {
+                filesList.style.display = 'none';
+                return;
+            }
+
+            filesList.style.display = 'block';
+            container.innerHTML = loadedFiles.map((file, index) => {
+                const code = file.name.replace('.pdf', '');
+                const size = formatFileSize(file.size);
+                const activeClass = index === currentFileIndex ? 'active' : '';
+                return `
+                    <div class="file-item ${activeClass}" onclick="displayFile(${index})">
+                        <span class="file-name">📄 ${file.name}</span>
+                        <span class="file-size">${size}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function displayFile(index) {
+            const file = loadedFiles[index];
+            if (!file) return;
+
+            currentFileIndex = index;
+            displayFilesList();
+
+            const sheet = document.getElementById('productSheet');
+            sheet.classList.add('active');
+
+            const code = file.name.replace('.pdf', '');
+            document.getElementById('code').textContent = code;
+            document.getElementById('filename').textContent = file.name;
+            document.getElementById('filesize').textContent = formatFileSize(file.size);
+            document.getElementById('modified').textContent = new Date(file.lastModified).toLocaleString();
+
+            const bottomFilename = document.getElementById('bottomFilename');
+            if (bottomFilename) {
+                bottomFilename.value = file.name.replace('.pdf', '');
+            }
+
+            const loadingEl = document.getElementById('loadingPdf');
+            const controlsEl = document.getElementById('pdfControls');
+            
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (controlsEl) controlsEl.style.display = 'none';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                currentPDF = pdf;
+                totalPages = pdf.numPages;
+                currentPage = 1;
+
+                document.getElementById('pagecount').textContent = totalPages;
+                document.getElementById('totalPages').textContent = totalPages;
+                document.getElementById('currentPage').textContent = currentPage;
+
+                if (totalPages > 1 && controlsEl) {
+                    controlsEl.style.display = 'flex';
+                }
+
+                await renderPage(currentPage);
+                showMessage('success', `Displaying: ${file.name} (${totalPages} pages)`);
+                sheet.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                showMessage('error', 'Error loading PDF: ' + error.message);
+                if (loadingEl) loadingEl.style.display = 'none';
+            }
+        }
+
+        async function renderPage(pageNum) {
+            if (!currentPDF) return;
+
+            const loadingEl = document.getElementById('loadingPdf');
+            if (loadingEl) loadingEl.style.display = 'block';
+
+            try {
+                const page = await currentPDF.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.5 });
+
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                canvas.className = 'pdf-canvas';
+
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
+
+                const container = document.getElementById('pdfContainer');
+                if (container) {
+                    container.innerHTML = '';
+                    const canvasContainer = document.createElement('div');
+                    canvasContainer.className = 'pdf-canvas-container';
+                    canvasContainer.appendChild(canvas);
+                    container.appendChild(canvasContainer);
+                }
+
+                if (loadingEl) loadingEl.style.display = 'none';
+                
+                const currentPageEl = document.getElementById('currentPage');
+                if (currentPageEl) currentPageEl.textContent = pageNum;
+
+            } catch (error) {
+                console.error('Error rendering page:', error);
+                showMessage('error', 'Error rendering page: ' + error.message);
+                if (loadingEl) loadingEl.style.display = 'none';
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPage(currentPage);
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+            }
+        }
+
+        function searchProduct() {
+            const code = document.getElementById('productCode').value.trim();
+            
+            if (!code) {
+                showMessage('error', 'Please enter a product code');
+                return;
+            }
+
+            const searchTerm = code.toLowerCase();
+            const index = loadedFiles.findIndex(file => 
+                file.name.toLowerCase().includes(searchTerm)
+            );
+
+            if (index === -1) {
+                showMessage('error', `No file found matching "${code}". Available files: ${loadedFiles.map(f => f.name.replace('.pdf', '')).join(', ')}`);
+                return;
+            }
+
+            displayFile(index);
+        }
+
+        function clearFiles() {
+            if (confirm('Clear all loaded files and reset the form?')) {
+                loadedFiles = [];
+                currentPDF = null;
+                currentFileIndex = -1;
+                displayFilesList();
+                
+                // Clear the PDF display area
+                const pdfContainer = document.getElementById('pdfContainer');
+                if (pdfContainer) {
+                    pdfContainer.innerHTML = '';
+                }
+                
+                // Hide PDF controls
+                const controlsEl = document.getElementById('pdfControls');
+                if (controlsEl) {
+                    controlsEl.style.display = 'none';
+                }
+                
+                // Reset product info
+                document.getElementById('code').textContent = '-';
+                document.getElementById('filename').textContent = '-';
+                document.getElementById('filesize').textContent = '-';
+                document.getElementById('pagecount').textContent = '-';
+                document.getElementById('modified').textContent = '-';
+                
+                // Clear bottom filename
+                document.getElementById('bottomFilename').value = '';
+                
+                // Clear purchase table
+                const row1Purchase = document.getElementById('row1_purchase');
+                const row1Drawing = document.getElementById('row1_drawing');
+                const row2Purchase = document.getElementById('row2_purchase');
+                const row2Drawing = document.getElementById('row2_drawing');
+                const row3Purchase = document.getElementById('row3_purchase');
+                const row3Drawing = document.getElementById('row3_drawing');
+                
+                if (row1Purchase) row1Purchase.value = '';
+                if (row1Drawing) row1Drawing.value = '';
+                if (row2Purchase) row2Purchase.value = '';
+                if (row2Drawing) row2Drawing.value = '';
+                if (row3Purchase) row3Purchase.value = '';
+                if (row3Drawing) row3Drawing.value = '';
+                
+                clearMessages();
+                showMessage('success', 'All files cleared and form reset');
+            }
+        }
+
+        async function loadPDF(file) {
+            // Find the index of the file in loadedFiles
+            const index = loadedFiles.findIndex(f => f.name === file.name && f.size === file.size);
+            if (index !== -1) {
+                await displayFile(index);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function showMessage(type, text) {
+            clearMessages();
+            const messageId = type === 'error' ? 'errorMessage' : 'successMessage';
+            const element = document.getElementById(messageId);
+            element.textContent = text;
+            element.classList.add('active');
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    element.classList.remove('active');
+                }, 5000);
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById('errorMessage').classList.remove('active');
+            document.getElementById('successMessage').classList.remove('active');
+        }
+
+        function savePDF() {
+            const sheet = document.getElementById('productSheet');
+            
+            if (!sheet.classList.contains('active')) {
+                showMessage('error', 'Please load a product first');
+                return;
+            }
+
+            const instructions = document.getElementById('printInstructions');
+            if (instructions) {
+                instructions.style.display = 'block';
+                setTimeout(() => {
+                    instructions.style.display = 'none';
+                }, 10000);
+            }
+
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+
+        function updateTableFromCode() {
+            const code = document.getElementById('bottomFilename').value.trim();
+            const row1Drawing = document.getElementById('row1_drawing');
+            
+            if (!row1Drawing) return;
+            
+            if (!code || code.length < 10) {
+                row1Drawing.value = '';
+                row1Drawing.style.width = '80px';
+                return;
+            }
+
+            const parts = code.split('_');
+            
+            if (parts.length >= 4) {
+                const sizeMaterialPart = parts[2];
+                
+                const sizeMatch = sizeMaterialPart.match(/^(\d{4})(.*)$/);
+                
+                if (sizeMatch) {
+                    const sizeCode = sizeMatch[1];
+                    const material = sizeMatch[2].toUpperCase();
+                    
+                    const width = parseInt(sizeCode.substring(0, 2)) * 10;
+                    const height = parseInt(sizeCode.substring(2, 4)) * 10;
+                    
+                    const sizeVariant = parts[3] || '';
+                    const finish = parts[4] || '';
+                    
+                    let drawingCode = `W_${width}-${height}`;
+                    
+                    if (material) {
+                        drawingCode += material;
+                    }
+                    
+                    if (sizeVariant) {
+                        drawingCode += `_${sizeVariant}`;
+                    }
+                    
+                    if (finish) {
+                        drawingCode += `_${finish}`;
+                    }
+                    
+                    row1Drawing.value = drawingCode;
+                    row1Drawing.style.width = ((drawingCode.length + 2) * 8) + 'px';
+                    
+                    console.log('Input Code:', code);
+                    console.log('Size:', width, 'x', height);
+                    console.log('Material:', material);
+                    console.log('Size Variant:', sizeVariant);
+                    console.log('Finish:', finish);
+                    console.log('Output Drawing Code:', drawingCode);
+                } else {
+                    row1Drawing.value = '';
+                    row1Drawing.style.width = '80px';
+                }
+            } else {
+                row1Drawing.value = '';
+                row1Drawing.style.width = '80px';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const allInputs = document.querySelectorAll('.editable-table input');
+            allInputs.forEach(input => {
+                // Set initial width based on content
+                const setWidth = () => {
+                    const length = input.value.length || 1;
+                    input.style.width = (length * 7 + 10) + 'px';
+                };
+                
+                setWidth();
+                
+                input.addEventListener('input', setWidth);
+            });
+        });
+
+        document.getElementById('productCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProduct();
+            }
+        });
+
+        function generateProductionCode() {
+            // Get all the field values
+            const tableType = document.getElementById('table-type-select').value;
+            const shape = document.getElementById('shape-select').value;
+            const leg = document.getElementById('leg-select').value;
+            const length = document.getElementById('length-select').value;
+            const width = document.getElementById('width-select').value;
+            const woodThickness = document.getElementById('wood-thickness-select').value;
+            const chamfer = document.getElementById('chamfer-select').value;
+            const electricity = document.getElementById('electricity-select').value;
+            const color = document.getElementById('color-select').value;
+
+            // Check if all fields are filled
+            if (!tableType || !shape || !leg || !length || !width || !woodThickness || !chamfer || !electricity || !color) {
+                alert('יש למלא את כל השדות לפני יצירת מקט ייצור');
+                return null;
+            }
+
+            // Build the production code in the same order as the דגם table
+            let code = '';
+
+            // 1. Table type prefix
+            if (tableType === 'קפיטריה') {
+                code += 'CAF_';
+            } else if (tableType === 'ישיבות') {
+                code += 'MEET_';
+            }
+
+            // 2. Shape
+            let shapeCode = '';
+            if (shape === 'עגול') {
+                code += 'RND_';
+                shapeCode = 'RND';
+            } else if (shape === 'מרובע') {
+                code += 'SQ_';
+                shapeCode = 'SQ';
+            } else if (shape === 'אליפסה') {
+                code += 'ELP_';
+                shapeCode = 'ELP';
+            } else if (shape === 'מלבן') {
+                code += 'RECT_';
+                shapeCode = 'RECT';
+            }
+
+            // 3. Leg type - use shortened codes
+            let legUpper = leg.toUpperCase();
+            let legCode = '';
+            if (legUpper === 'KONUS') {
+                legCode = 'KON';
+            } else if (legUpper === 'TUBE') {
+                legCode = 'TUB';
+            } else if (legUpper === 'SAND') {
+                legCode = 'SAN';
+            } else if (legUpper === 'OVAL') {
+                legCode = 'OVA';
+            }
+            code += legCode + '_';
+
+            // 4. Dimensions (format: LLWW where LL=length/10, WW=width/10)
+            const lengthCode = String(Math.floor(length / 10)).padStart(2, '0');
+            const widthCode = String(Math.floor(width / 10)).padStart(2, '0');
+            code += lengthCode + widthCode + '_';
+
+            // 5. Wood thickness
+            code += 'T' + woodThickness + '_';
+
+            // 6. Chamfer
+            let chamferCode = '';
+            if (chamfer === '0') {
+                chamferCode = 'C0';
+            } else if (chamfer === '4') {
+                chamferCode = 'C4';
+            } else if (chamfer === 'שמאל') {
+                chamferCode = 'CL';
+            } else if (chamfer === 'ימין') {
+                chamferCode = 'CR';
+            }
+            code += chamferCode + '_';
+
+            // 7. Electricity
+            if (electricity === 'גדול (5)') {
+                code += 'E5_';
+            } else if (electricity === 'בינוני (3)') {
+                code += 'E3_';
+            } else if (electricity === 'עיגול קטן (point)') {
+                code += 'EPOINT_';
+            } else if (electricity === 'ללא') {
+                code += 'E0_';
+            }
+
+            // 8. Color
+            let colorCode = '';
+            if (color === 'לבן') {
+                code += 'WHT';
+                colorCode = 'WHT';
+            } else if (color === 'שחור') {
+                code += 'BLK';
+                colorCode = 'BLK';
+            } else if (color === 'עץ טבעי') {
+                code += 'NAT';
+                colorCode = 'NAT';
+            }
+
+            // Set the production code
+            document.getElementById('bottomFilename').value = code;
+            
+            // Generate table codes
+            updateTableCodesFromMainCode(code, shapeCode, length, width, woodThickness, chamferCode, legCode, colorCode);
+            
+            return code;
+        }
+
+        function generateAndSearchPDF() {
+            // Generate the production code
+            const code = generateProductionCode();
+            
+            if (!code) {
+                return; // Error already shown in generateProductionCode
+            }
+            
+            // Show success message
+            showMessage('success', 'מקט ייצור נוצר בהצלחה: ' + code);
+            
+            // Search for PDF with matching code
+            searchForPDFByCode(code);
+        }
+
+        function searchForPDFByCode(productionCode) {
+            // First try to search in Google Drive cache
+            if (driveFilesCache.length > 0) {
+                searchAndLoadFromDrive(productionCode);
+                return;
+            }
+            
+            // Fallback to local loaded files
+            if (!loadedFiles || loadedFiles.length === 0) {
+                showMessage('error', 'No files available. Please connect to Google Drive or upload files manually.');
+                return;
+            }
+
+            // Search for a file that matches the production code in loaded files
+            let foundFile = null;
+            
+            for (let file of loadedFiles) {
+                const fileName = file.name.toUpperCase().replace('.PDF', '');
+                const codeUpper = productionCode.toUpperCase();
+                
+                // Check if the filename contains or matches the production code
+                if (fileName.includes(codeUpper) || codeUpper.includes(fileName)) {
+                    foundFile = file;
+                    break;
+                }
+            }
+
+            if (foundFile) {
+                // Load the found PDF
+                loadPDF(foundFile);
+                showMessage('success', 'Found matching PDF: ' + foundFile.name);
+            } else {
+                showMessage('error', 'No matching PDF found. Please connect to Google Drive or upload the correct file.');
+            }
+        }
+
+        function updateTableCodesFromMainCode(mainCode, shapeCode, length, width, woodThickness, chamferCode, legCode, colorCode) {
+            // Determine electricity hole codes from main code
+            let electricityHoleCode = '';
+            if (mainCode.includes('E5_')) {
+                electricityHoleCode = 'E5';
+            } else if (mainCode.includes('E3_')) {
+                electricityHoleCode = 'E3';
+            } else if (mainCode.includes('EPOINT_')) {
+                electricityHoleCode = 'EPOINT';
+            } else if (mainCode.includes('E0_')) {
+                electricityHoleCode = 'E0';
+            }
+            
+            // Row 1: משטח עליון (Top Surface) - include chamfer and electricity hole
+            const topSurfaceCode = `TOP_${shapeCode}_${length}X${width}_T${woodThickness}_${chamferCode}_${electricityHoleCode}_${colorCode}`;
+            const row1Purchase = document.getElementById('row1_purchase');
+            if (row1Purchase) {
+                row1Purchase.value = topSurfaceCode;
+                row1Purchase.style.width = ((topSurfaceCode.length + 2) * 7 + 10) + 'px';
+            }
+
+            // Update the drawing code in row 1 - same as purchase but with _01
+            const row1DrawingCode = `${topSurfaceCode}_01`;
+            const row1Drawing = document.getElementById('row1_drawing');
+            if (row1Drawing) {
+                row1Drawing.value = row1DrawingCode;
+                row1Drawing.style.width = ((row1DrawingCode.length + 2) * 7 + 10) + 'px';
+            }
+
+            // Row 2: משטח תומך (Support Surface) - 30cm smaller, 17mm black backing, no chamfer, WITH electricity hole
+            const supportLength = parseInt(length) - 30;
+            const supportWidth = parseInt(width) - 30;
+            const row2Purchase = document.getElementById('row2_purchase');
+            const row2Drawing = document.getElementById('row2_drawing');
+            if (row2Purchase) {
+                const supportCode = `SUP_${shapeCode}_${supportLength}X${supportWidth}_T17_C0_${electricityHoleCode}_BLK`;
+                row2Purchase.value = supportCode;
+                row2Purchase.style.width = ((supportCode.length + 2) * 7 + 10) + 'px';
+                
+                // Drawing code for row 2
+                if (row2Drawing) {
+                    const row2DrawingCode = `${supportCode}_01`;
+                    row2Drawing.value = row2DrawingCode;
+                    row2Drawing.style.width = ((row2DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+            }
+
+            // Row 3: רגל (Leg) - include electricity hole information
+            const row3Purchase = document.getElementById('row3_purchase');
+            const row3Drawing = document.getElementById('row3_drawing');
+            const row3Desc = document.getElementById('row3_desc');
+            if (row3Purchase) {
+                const legPurchaseCode = `LEG_${legCode}_${electricityHoleCode}`;
+                row3Purchase.value = legPurchaseCode;
+                row3Purchase.style.width = ((legPurchaseCode.length + 2) * 7 + 10) + 'px';
+                
+                // Drawing code for row 3
+                if (row3Drawing) {
+                    const row3DrawingCode = `${legPurchaseCode}_01`;
+                    row3Drawing.value = row3DrawingCode;
+                    row3Drawing.style.width = ((row3DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+            }
+            if (row3Desc) {
+                row3Desc.value = `רגל ${legCode}`;
+                row3Desc.style.width = ((row3Desc.value.length + 2) * 7 + 10) + 'px';
+            }
+        }
+
+        function parseAndUpdateFromMainCode() {
+            const mainCode = document.getElementById('bottomFilename').value.trim();
+            if (!mainCode) return;
+
+            // Parse the main production code
+            // Format: MEET_SQ_KON_1212_T28_C4_E5_WHT
+            const parts = mainCode.split('_');
+            
+            if (parts.length < 8) {
+                console.log('Invalid production code format');
+                return;
+            }
+
+            try {
+                // Extract components
+                const tableType = parts[0]; // MEET or CAF
+                const shapeCode = parts[1]; // RND, SQ, ELP, RECT
+                const legCodeShort = parts[2]; // KON, SAN, TUB, OVA
+                const dimensions = parts[3]; // 1212
+                const thickness = parts[4]; // T28
+                const chamfer = parts[5]; // C4, C0, CL, CR
+                const electricity = parts[6]; // E5, E3, EPOINT, E0
+                const colorCode = parts[7]; // WHT, BLK, NAT
+
+                // Extract length and width from dimensions
+                const length = parseInt(dimensions.substring(0, 2)) * 10;
+                const width = parseInt(dimensions.substring(2, 4)) * 10;
+                
+                // Extract thickness value
+                const woodThickness = thickness.substring(1); // Remove 'T'
+                
+                // Extract chamfer code
+                const chamferCode = chamfer;
+                
+                // Use the short leg code directly
+                const legCode = legCodeShort;
+                
+                // Update table codes
+                updateTableCodesFromMainCode(mainCode, shapeCode, length, width, woodThickness, chamferCode, legCode, colorCode);
+                
+            } catch (error) {
+                console.error('Error parsing production code:', error);
+            }
+        }
+
+        // Add event listener to the main production code field
+        document.getElementById('bottomFilename').addEventListener('input', parseAndUpdateFromMainCode);
+
+        document.getElementById('productCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProduct();
+            }
+        });
+
+        // Round and square table logic - sync length and width
+        document.addEventListener('DOMContentLoaded', function() {
+            const shapeSelect = document.getElementById('shape-select');
+            const lengthSelect = document.getElementById('length-select');
+            const widthSelect = document.getElementById('width-select');
+            const tableTypeSelect = document.getElementById('table-type-select');
+            const electricitySelect = document.getElementById('electricity-select');
+
+            let lengthHandler, widthHandler;
+
+            // Store all width and length options
+            const allWidthOptions = Array.from(widthSelect.options).map(opt => ({
+                value: opt.value,
+                text: opt.text
+            }));
+            
+            const allLengthOptions = Array.from(lengthSelect.options).map(opt => ({
+                value: opt.value,
+                text: opt.text
+            }));
+
+            // Sequential validation and color coding - DEFINE FIRST
+            const formFields = [
+                { id: 'table-type-select', name: 'Table Type' },
+                { id: 'shape-select', name: 'Shape' },
+                { id: 'leg-select', name: 'Leg' },
+                { id: 'length-select', name: 'Length' },
+                { id: 'width-select', name: 'Width' },
+                { id: 'wood-thickness-select', name: 'Wood Thickness' },
+                { id: 'chamfer-select', name: 'Chamfer' },
+                { id: 'electricity-select', name: 'Electricity' },
+                { id: 'color-select', name: 'Color' }
+            ];
+
+            function updateFieldValidation() {
+                let allPreviousFilled = true;
+                let allFieldsFilled = true;
+
+                formFields.forEach((field, index) => {
+                    const element = document.getElementById(field.id);
+                    if (!element) return;
+
+                    // For the first field, always enable it
+                    if (index === 0) {
+                        element.disabled = false;
+                        if (element.value === '') {
+                            element.classList.add('required-field');
+                            element.classList.remove('valid-field');
+                            allPreviousFilled = false;
+                            allFieldsFilled = false;
+                        } else {
+                            element.classList.add('valid-field');
+                            element.classList.remove('required-field');
+                        }
+                    } else {
+                        // For other fields, check if all previous fields are filled
+                        if (allPreviousFilled) {
+                            // Special case: electricity is auto-filled for cafeteria
+                            const isElectricityAutofilled = (field.id === 'electricity-select' && 
+                                                             tableTypeSelect && 
+                                                             tableTypeSelect.value === 'קפיטריה');
+                            
+                            if (!isElectricityAutofilled) {
+                                element.disabled = false;
+                            }
+                            
+                            // Apply color coding
+                            if (element.value === '') {
+                                element.classList.add('required-field');
+                                element.classList.remove('valid-field');
+                                allPreviousFilled = false;
+                                allFieldsFilled = false;
+                            } else {
+                                element.classList.add('valid-field');
+                                element.classList.remove('required-field');
+                            }
+                        } else {
+                            // This field should be disabled because previous fields aren't filled
+                            element.disabled = true;
+                            element.classList.remove('required-field', 'valid-field');
+                            // Don't clear electricity if it's auto-filled for cafeteria
+                            if (field.id !== 'electricity-select' || !tableTypeSelect || tableTypeSelect.value !== 'קפיטריה') {
+                                element.value = '';
+                            }
+                            allFieldsFilled = false;
+                        }
+                    }
+                });
+
+                // Enable/disable the generate button
+                const generateBtn = document.getElementById('generateCodeBtn');
+                if (generateBtn) {
+                    if (allFieldsFilled) {
+                        generateBtn.disabled = false;
+                        generateBtn.style.opacity = '1';
+                        generateBtn.style.cursor = 'pointer';
+                    } else {
+                        generateBtn.disabled = true;
+                        generateBtn.style.opacity = '0.5';
+                        generateBtn.style.cursor = 'not-allowed';
+                    }
+                }
+            }
+
+            function getShapeLimits() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                
+                if (shape === 'מרובע') { // Square
+                    return { min: 80, max: 120 };
+                } else if (shape === 'עגול') { // Round
+                    return { min: 80, max: 180 };
+                }
+                return { min: 0, max: 999 };
+            }
+
+            function filterWidthOptions() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const isRoundOrSquare = shape === 'עגול' || shape === 'מרובע';
+                const lengthVal = parseInt(lengthSelect.value) || 999;
+                const currentWidthVal = widthSelect.value;
+                const limits = getShapeLimits();
+                
+                // Clear current options
+                widthSelect.innerHTML = '';
+                
+                // Add filtered options
+                allWidthOptions.forEach(opt => {
+                    const optVal = parseInt(opt.value) || 0;
+                    const withinLimits = opt.value === '' || (optVal >= limits.min && optVal <= limits.max);
+                    
+                    // For round/square, show all options within limits
+                    // For rectangular, show only options smaller than length
+                    const shouldShow = isRoundOrSquare 
+                        ? withinLimits 
+                        : (withinLimits && (opt.value === '' || optVal < lengthVal));
+                    
+                    if (shouldShow) {
+                        const option = document.createElement('option');
+                        option.value = opt.value;
+                        option.text = opt.text;
+                        widthSelect.appendChild(option);
+                    }
+                });
+                
+                // Restore selection if still valid
+                const currentWidthInt = parseInt(currentWidthVal);
+                if (isRoundOrSquare) {
+                    if (currentWidthInt >= limits.min && currentWidthInt <= limits.max) {
+                        widthSelect.value = currentWidthVal;
+                    } else {
+                        widthSelect.value = '';
+                    }
+                } else {
+                    if (currentWidthInt < lengthVal && currentWidthInt >= limits.min && currentWidthInt <= limits.max) {
+                        widthSelect.value = currentWidthVal;
+                    } else {
+                        widthSelect.value = '';
+                    }
+                }
+            }
+            
+            function filterLengthOptions() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const isRoundOrSquare = shape === 'עגול' || shape === 'מרובע';
+                const widthVal = parseInt(widthSelect.value) || 0;
+                const currentLengthVal = lengthSelect.value;
+                const limits = getShapeLimits();
+                
+                // Clear current options
+                lengthSelect.innerHTML = '';
+                
+                // Add filtered options
+                allLengthOptions.forEach(opt => {
+                    const optVal = parseInt(opt.value) || 0;
+                    const withinLimits = opt.value === '' || (optVal >= limits.min && optVal <= limits.max);
+                    
+                    // For round/square, show all options within limits
+                    // For rectangular, show only options larger than width
+                    const shouldShow = isRoundOrSquare 
+                        ? withinLimits 
+                        : (withinLimits && (opt.value === '' || optVal > widthVal));
+                    
+                    if (shouldShow) {
+                        const option = document.createElement('option');
+                        option.value = opt.value;
+                        option.text = opt.text;
+                        lengthSelect.appendChild(option);
+                    }
+                });
+                
+                // Restore selection if still valid
+                const currentLengthInt = parseInt(currentLengthVal);
+                if (isRoundOrSquare) {
+                    if (currentLengthInt >= limits.min && currentLengthInt <= limits.max) {
+                        lengthSelect.value = currentLengthVal;
+                    } else {
+                        lengthSelect.value = '';
+                    }
+                } else {
+                    if (currentLengthInt > widthVal && currentLengthInt >= limits.min && currentLengthInt <= limits.max) {
+                        lengthSelect.value = currentLengthVal;
+                    } else {
+                        lengthSelect.value = '';
+                    }
+                }
+            }
+
+            function syncDimensions() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const shouldSync = shape === 'עגול' || shape === 'מרובע';
+                
+                if (shouldSync && lengthSelect && widthSelect) {
+                    // When shape becomes round or square, sync to the smaller value
+                    const lengthVal = parseInt(lengthSelect.value) || 0;
+                    const widthVal = parseInt(widthSelect.value) || 0;
+                    
+                    if (lengthVal > 0 && widthVal > 0 && lengthVal !== widthVal) {
+                        // Sync to the smaller value
+                        const smallerValue = Math.min(lengthVal, widthVal).toString();
+                        lengthSelect.value = smallerValue;
+                        widthSelect.value = smallerValue;
+                    } else if (lengthVal > 0) {
+                        // Only length has value, sync width to it
+                        widthSelect.value = lengthVal.toString();
+                    } else if (widthVal > 0) {
+                        // Only width has value, sync length to it
+                        lengthSelect.value = widthVal.toString();
+                    }
+                }
+            }
+
+            // Electricity logic based on table type
+            function handleElectricityOptions() {
+                if (!tableTypeSelect || !electricitySelect) return;
+                
+                const tableType = tableTypeSelect.value;
+                
+                if (tableType === 'קפיטריה') {
+                    // Always set to ללא for cafeteria and disable
+                    electricitySelect.value = 'ללא';
+                    electricitySelect.disabled = true;
+                    // Make it green since it's auto-filled
+                    electricitySelect.classList.add('valid-field');
+                    electricitySelect.classList.remove('required-field');
+                } else if (tableType === 'ישיבות') {
+                    // Cannot be ללא for meetings
+                    electricitySelect.disabled = false;
+                    if (electricitySelect.value === 'ללא') {
+                        electricitySelect.value = '';
+                    }
+                } else {
+                    // No table type selected
+                    electricitySelect.disabled = false;
+                    electricitySelect.value = '';
+                }
+                
+                // Update validation after changing electricity
+                updateFieldValidation();
+            }
+
+            if (lengthSelect && widthSelect) {
+                lengthSelect.addEventListener('change', function() {
+                    const shape = shapeSelect ? shapeSelect.value : '';
+                    if (shape === 'עגול' || shape === 'מרובע') {
+                        widthSelect.value = this.value;
+                    } else {
+                        filterWidthOptions();
+                    }
+                    updateFieldValidation();
+                });
+                
+                widthSelect.addEventListener('change', function() {
+                    const shape = shapeSelect ? shapeSelect.value : '';
+                    if (shape === 'עגול' || shape === 'מרובע') {
+                        lengthSelect.value = this.value;
+                    } else {
+                        filterLengthOptions();
+                    }
+                    updateFieldValidation();
+                });
+                
+                filterWidthOptions();
+            }
+
+            if (shapeSelect) {
+                shapeSelect.addEventListener('change', function() {
+                    // Refilter both dropdowns when shape changes
+                    filterWidthOptions();
+                    filterLengthOptions();
+                    syncDimensions();
+                    updateFieldValidation();
+                });
+                syncDimensions();
+            }
+
+            if (tableTypeSelect) {
+                tableTypeSelect.addEventListener('change', function() {
+                    handleElectricityOptions();
+                    updateFieldValidation();
+                });
+                handleElectricityOptions();
+            }
+
+            // Prevent selecting ללא for ישיבות
+            if (electricitySelect && tableTypeSelect) {
+                electricitySelect.addEventListener('change', function() {
+                    if (tableTypeSelect.value === 'ישיבות' && this.value === 'ללא') {
+                        alert('לא ניתן לבחור "ללא" עבור שולחן ישיבות');
+                        this.value = '';
+                    }
+                    updateFieldValidation();
+                });
+            }
+
+            // Add change listeners to all form fields
+            formFields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (element) {
+                    element.addEventListener('change', updateFieldValidation);
+                }
+            });
+
+            // Initial validation - all fields should start as red
+            updateFieldValidation();
+        });
+    </script>
+</body>
+</html>
+                    
