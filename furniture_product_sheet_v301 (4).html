@@ -1,0 +1,3740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Sheet Generator v301</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <script>
+        // Define these functions globally BEFORE the Google scripts load
+        window.gapiInited = false;
+        window.gisInited = false;
+        
+        function gapiLoaded() {
+            console.log('✓ GAPI script loaded');
+            window.gapiInited = true;
+        }
+        
+        function gisLoaded() {
+            console.log('✓ GIS script loaded');
+            window.gisInited = true;
+        }
+    </script>
+    
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" async defer></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Heebo', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        /* Main Layout */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .app-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .app-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-logo-icon {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .app-title {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .app-version {
+            font-size: 11px;
+            color: #888;
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(238, 90, 90, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+        }
+
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Left Panel - דגם Table */
+        .left-panel {
+            width: 320px;
+            min-width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-header-icon {
+            font-size: 20px;
+        }
+
+        .panel-body {
+            padding: 15px;
+        }
+
+        /* דגם Table Styling */
+        .model-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            direction: rtl;
+        }
+
+        .model-table tr {
+            transition: background 0.2s ease;
+        }
+
+        .model-table tr:hover {
+            background: #f8f9ff;
+        }
+
+        .model-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+
+        .model-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .row-number {
+            width: 30px;
+            text-align: center;
+            font-weight: 700;
+            color: #667eea;
+            font-size: 14px;
+        }
+
+        .row-label {
+            font-weight: 500;
+            color: #555;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .row-input {
+            width: 100%;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Heebo', Arial, sans-serif;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            direction: rtl;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: left 12px center;
+            padding-left: 35px;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .model-select.required-field {
+            border-color: #ff6b6b;
+            background-color: #fff5f5;
+        }
+
+        .model-select.valid-field {
+            border-color: #2ecc71;
+            background-color: #f0fff4;
+        }
+
+        .model-select:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+
+        .generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+        }
+
+        .generate-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Production Code Display */
+        .code-display {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+        }
+
+        .code-label {
+            color: #888;
+            font-size: 11px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .code-input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .code-input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .code-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Center Panel - PDF Viewer */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 0;
+        }
+
+        .pdf-viewer-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pdf-container {
+            flex: 1;
+            background: #f0f0f0;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 500px;
+            overflow: auto;
+            position: relative;
+        }
+
+        /* PDF Wrapper with Overlays */
+        .pdf-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 600px;
+        }
+
+        /* Overlay Table Container (רכש) */
+        .overlay-table-container {
+            position: absolute;
+            top: 8%;
+            left: 3%;
+            width: 45%;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .overlay-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            direction: rtl;
+            text-align: right;
+        }
+
+        .overlay-table th,
+        .overlay-table td {
+            border: 1px solid #333;
+            padding: 3px 4px;
+        }
+
+        .overlay-table-header th {
+            background: #d0d0d0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 11px;
+        }
+
+        .overlay-table-subheader th {
+            background: #e8e8e8;
+            font-weight: bold;
+            text-align: center;
+            font-size: 9px;
+        }
+
+        .overlay-table td:first-child {
+            width: 20px;
+            text-align: center;
+            font-weight: bold;
+            background: #f5f5f5;
+        }
+
+        .overlay-table input {
+            width: 100%;
+            border: none;
+            padding: 2px;
+            font-size: 9px;
+            background: transparent;
+            text-align: right;
+            text-transform: uppercase;
+            font-family: 'Courier New', monospace;
+        }
+
+        .overlay-table input:focus {
+            outline: 1px solid #667eea;
+            background: #fff3e0;
+        }
+
+        /* Overlay Filename Container (מקט ייצור) */
+        .overlay-filename-container {
+            position: absolute;
+            bottom: 10%;
+            left: 3%;
+            width: 45%;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border: 2px solid #333;
+            border-radius: 4px;
+        }
+
+        .overlay-filename-label {
+            font-size: 10px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 4px;
+            text-align: left;
+        }
+
+        .overlay-filename-input {
+            width: 100%;
+            border: 1px solid #333;
+            padding: 6px;
+            font-size: 12px;
+            text-align: left;
+            font-weight: bold;
+            background: white;
+            text-transform: uppercase;
+            font-family: 'Courier New', monospace;
+        }
+
+        .overlay-filename-input:focus {
+            outline: 2px solid #667eea;
+            background: #fff3e0;
+        }
+
+        .pdf-placeholder {
+            text-align: center;
+            color: #888;
+        }
+
+        .pdf-placeholder-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .pdf-placeholder-text {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .pdf-placeholder-subtext {
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .pdf-canvas {
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+        }
+
+        .pdf-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .pdf-controls button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pdf-controls button:hover {
+            background: #5a6fd6;
+        }
+
+        .page-info {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* Right Panel - Files Only */
+        .right-panel {
+            width: 280px;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* רכש Table */
+        .purchase-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            direction: rtl;
+            font-size: 11px;
+        }
+
+        .purchase-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 8px;
+            font-weight: 600;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        .purchase-table th:first-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        .purchase-table th:last-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        .purchase-table td {
+            padding: 8px 6px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+
+        .purchase-table input {
+            width: 100%;
+            min-width: 50px;
+            padding: 6px 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 10px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+
+        .purchase-table input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .purchase-table input[type="text"] {
+            background: white;
+        }
+
+        /* Files List */
+        .files-list-container {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: #e8f0fe;
+            transform: translateX(-3px);
+        }
+
+        .file-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .file-icon {
+            font-size: 20px;
+            margin-left: 10px;
+        }
+
+        .file-info {
+            flex: 1;
+            text-align: right;
+        }
+
+        .file-name {
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .file-size {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .file-item.active .file-size {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .upload-subtext {
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* Messages */
+        .message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .message.active {
+            display: block;
+        }
+
+        .message.error {
+            background: #fff5f5;
+            color: #c53030;
+            border: 1px solid #feb2b2;
+        }
+
+        .message.success {
+            background: #f0fff4;
+            color: #276749;
+            border: 1px solid #9ae6b4;
+        }
+
+        .message.info {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            border: 1px solid #90cdf4;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-pdf {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        /* Hide elements */
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+
+        /* Google Drive Section */
+        .gdrive-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .gdrive-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .gdrive-connect {
+            background: #4285f4;
+            color: white;
+        }
+
+        .gdrive-connect:hover {
+            background: #3367d6;
+        }
+
+        .gdrive-signout {
+            background: #f1f1f1;
+            color: #666;
+        }
+
+        .gdrive-signout:hover {
+            background: #e1e1e1;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+
+            .app-header,
+            .left-panel,
+            .right-panel,
+            .pdf-controls,
+            .pdf-placeholder {
+                display: none !important;
+            }
+
+            .main-content {
+                padding: 0;
+            }
+
+            .center-panel {
+                width: 100%;
+            }
+
+            .panel-card {
+                box-shadow: none;
+                border-radius: 0;
+            }
+
+            .panel-header {
+                display: none;
+            }
+
+            .pdf-wrapper {
+                position: relative;
+                width: 100%;
+                min-height: auto;
+            }
+
+            .overlay-table-container {
+                position: absolute !important;
+                top: 8% !important;
+                left: 3% !important;
+                width: 45% !important;
+                background: white !important;
+                box-shadow: none !important;
+            }
+
+            .overlay-filename-container {
+                position: absolute !important;
+                bottom: 10% !important;
+                left: 3% !important;
+                width: 45% !important;
+                background: white !important;
+            }
+
+            .overlay-table input,
+            .overlay-filename-input {
+                border: none !important;
+                background: transparent !important;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .left-panel {
+                width: 280px;
+                min-width: 280px;
+            }
+            .right-panel {
+                width: 250px;
+                min-width: 250px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-wrap: wrap;
+            }
+            .left-panel,
+            .right-panel {
+                width: 100%;
+                min-width: 100%;
+            }
+            .center-panel {
+                order: -1;
+                width: 100%;
+            }
+            .overlay-table-container,
+            .overlay-filename-container {
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                bottom: auto !important;
+                width: 100% !important;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="app-logo">
+                <div class="app-logo-icon">🪑</div>
+                <div>
+                    <div class="app-title">Product Sheet Generator</div>
+                    <div class="app-version">v301 - Modern UI with Bi-directional Sync</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="header-btn btn-primary" onclick="openGoogleDrivePicker()">
+                    <span>📁</span> Google Drive
+                </button>
+                <button class="header-btn btn-success" onclick="savePDF()">
+                    <span>💾</span> Save PDF
+                </button>
+                <button class="header-btn btn-danger" onclick="clearFiles()">
+                    <span>🗑️</span> Clear
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel - דגם Table -->
+            <aside class="left-panel">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <span class="panel-header-icon">📋</span>
+                        דגם - הגדרות מוצר
+                    </div>
+                    <div class="panel-body">
+                        <table class="model-table">
+                            <tr>
+                                <td class="row-number">1</td>
+                                <td class="row-label">שולחן</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="table-type-select">
+                                        <option value="">בחר...</option>
+                                        <option value="קפיטריה">קפיטריה</option>
+                                        <option value="ישיבות">ישיבות</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">2</td>
+                                <td class="row-label">צורה</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="shape-select">
+                                        <option value="">בחר...</option>
+                                        <option value="עגול">עגול</option>
+                                        <option value="ריבוע">ריבוע</option>
+                                        <option value="ריבוע מעוגל">ריבוע מעוגל</option>
+                                        <option value="אליפסה">אליפסה</option>
+                                        <option value="מלבן">מלבן</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">3</td>
+                                <td class="row-label">רגל</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="leg-select">
+                                        <option value="">בחר...</option>
+                                        <option value="konus">konus</option>
+                                        <option value="sand">sand</option>
+                                        <option value="tube">tube</option>
+                                        <option value="oval">oval</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">4</td>
+                                <td class="row-label">אורך</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="length-select">
+                                        <option value="">בחר...</option>
+                                        <option value="80">80</option>
+                                        <option value="90">90</option>
+                                        <option value="100">100</option>
+                                        <option value="110">110</option>
+                                        <option value="120">120</option>
+                                        <option value="130">130</option>
+                                        <option value="140">140</option>
+                                        <option value="150">150</option>
+                                        <option value="160">160</option>
+                                        <option value="170">170</option>
+                                        <option value="180">180</option>
+                                        <option value="190">190</option>
+                                        <option value="200">200</option>
+                                        <option value="210">210</option>
+                                        <option value="220">220</option>
+                                        <option value="230">230</option>
+                                        <option value="240">240</option>
+                                        <option value="250">250</option>
+                                        <option value="260">260</option>
+                                        <option value="270">270</option>
+                                        <option value="280">280</option>
+                                        <option value="290">290</option>
+                                        <option value="300">300</option>
+                                        <option value="310">310</option>
+                                        <option value="320">320</option>
+                                        <option value="330">330</option>
+                                        <option value="340">340</option>
+                                        <option value="350">350</option>
+                                        <option value="360">360</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">5</td>
+                                <td class="row-label">רוחב</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="width-select">
+                                        <option value="">בחר...</option>
+                                        <option value="80">80</option>
+                                        <option value="90">90</option>
+                                        <option value="100">100</option>
+                                        <option value="110">110</option>
+                                        <option value="120">120</option>
+                                        <option value="130">130</option>
+                                        <option value="140">140</option>
+                                        <option value="150">150</option>
+                                        <option value="160">160</option>
+                                        <option value="170">170</option>
+                                        <option value="180">180</option>
+                                        <option value="190">190</option>
+                                        <option value="200">200</option>
+                                        <option value="210">210</option>
+                                        <option value="220">220</option>
+                                        <option value="230">230</option>
+                                        <option value="240">240</option>
+                                        <option value="250">250</option>
+                                        <option value="260">260</option>
+                                        <option value="270">270</option>
+                                        <option value="280">280</option>
+                                        <option value="290">290</option>
+                                        <option value="300">300</option>
+                                        <option value="310">310</option>
+                                        <option value="320">320</option>
+                                        <option value="330">330</option>
+                                        <option value="340">340</option>
+                                        <option value="350">350</option>
+                                        <option value="360">360</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr id="leg-count-row" style="display: none;">
+                                <td class="row-number">6</td>
+                                <td class="row-label">מספר רגליים</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="leg-count-select">
+                                        <option value="">בחר...</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">7</td>
+                                <td class="row-label">עובי פלטה</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="wood-thickness-select">
+                                        <option value="">בחר...</option>
+                                        <option value="17">17</option>
+                                        <option value="28">28</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">8</td>
+                                <td class="row-label">מגרעת</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="chamfer-select">
+                                        <option value="">בחר...</option>
+                                        <option value="0">0 - ללא מגרעת</option>
+                                        <option value="4">4 - מגרעת (4 פינות)</option>
+                                        <option value="שמאל">שמאל</option>
+                                        <option value="ימין">ימין</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">9</td>
+                                <td class="row-label">חשמל</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="electricity-select">
+                                        <option value="">בחר...</option>
+                                        <option value="גדול (5)">גדול (5)</option>
+                                        <option value="בינוני (3)">בינוני (3)</option>
+                                        <option value="עיגול קטן (point)">עיגול קטן (point)</option>
+                                        <option value="ללא">ללא</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="row-number">10</td>
+                                <td class="row-label">צבע</td>
+                                <td class="row-input">
+                                    <select class="model-select category-table-select" id="color-select">
+                                        <option value="">בחר...</option>
+                                        <option value="לבן">לבן</option>
+                                        <option value="שחור">שחור</option>
+                                        <option value="עץ טבעי">עץ טבעי</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <button class="generate-btn" id="generateCodeBtn" onclick="generateAndSearchPDF()">
+                            ✨ אשר והפק מקט ייצור
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Messages -->
+                <div class="message error" id="errorMessage"></div>
+                <div class="message success" id="successMessage"></div>
+            </aside>
+
+            <!-- Center Panel - PDF Viewer with Overlaid Tables -->
+            <section class="center-panel">
+                <div class="panel-card pdf-viewer-card">
+                    <div class="panel-header">
+                        <span class="panel-header-icon">📄</span>
+                        תצוגת PDF
+                    </div>
+                    <div class="panel-body" style="flex: 1; display: flex; flex-direction: column; padding: 0;">
+                        <div class="pdf-wrapper">
+                            <!-- רכש Table Overlay (top-left of PDF) -->
+                            <div class="overlay-table-container" id="overlayTableContainer">
+                                <table class="overlay-table">
+                                    <tr class="overlay-table-header">
+                                        <th colspan="7">רכש</th>
+                                    </tr>
+                                    <tr class="overlay-table-subheader">
+                                        <th></th>
+                                        <th>תיאור</th>
+                                        <th>רכש מרכיב</th>
+                                        <th>שרטוט</th>
+                                        <th>גימור/עיבוד</th>
+                                        <th>כמ</th>
+                                        <th>סהכ</th>
+                                    </tr>
+                                    <tr>
+                                        <td>1</td>
+                                        <td><input type="text" id="row1_desc" value="משטח עליון" /></td>
+                                        <td><input type="text" id="row1_purchase" value="" /></td>
+                                        <td><input type="text" id="row1_drawing" value="" /></td>
+                                        <td><input type="text" id="row1_finish" value="" /></td>
+                                        <td><input type="text" id="row1_qty" value="1" /></td>
+                                        <td><input type="text" id="row1_total" value="" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>2</td>
+                                        <td><input type="text" id="row2_desc" value="משטח תומך" /></td>
+                                        <td><input type="text" id="row2_purchase" value="" /></td>
+                                        <td><input type="text" id="row2_drawing" value="" /></td>
+                                        <td><input type="text" id="row2_finish" value="" /></td>
+                                        <td><input type="text" id="row2_qty" value="1" /></td>
+                                        <td><input type="text" id="row2_total" value="" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>3</td>
+                                        <td><input type="text" id="row3_desc" value="רגל" /></td>
+                                        <td><input type="text" id="row3_purchase" value="" /></td>
+                                        <td><input type="text" id="row3_drawing" value="" /></td>
+                                        <td><input type="text" id="row3_finish" value="" /></td>
+                                        <td><input type="text" id="row3_qty" value="1" /></td>
+                                        <td><input type="text" id="row3_total" value="" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>4</td>
+                                        <td><input type="text" id="row4_desc" value="" /></td>
+                                        <td><input type="text" id="row4_purchase" value="" /></td>
+                                        <td><input type="text" id="row4_drawing" value="" /></td>
+                                        <td><input type="text" id="row4_finish" value="" /></td>
+                                        <td><input type="text" id="row4_qty" value="" /></td>
+                                        <td><input type="text" id="row4_total" value="" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>5</td>
+                                        <td><input type="text" id="row5_desc" value="" /></td>
+                                        <td><input type="text" id="row5_purchase" value="" /></td>
+                                        <td><input type="text" id="row5_drawing" value="" /></td>
+                                        <td><input type="text" id="row5_finish" value="" /></td>
+                                        <td><input type="text" id="row5_qty" value="" /></td>
+                                        <td><input type="text" id="row5_total" value="" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>6</td>
+                                        <td><input type="text" id="row6_desc" value="" /></td>
+                                        <td><input type="text" id="row6_purchase" value="" /></td>
+                                        <td><input type="text" id="row6_drawing" value="" /></td>
+                                        <td><input type="text" id="row6_finish" value="" /></td>
+                                        <td><input type="text" id="row6_qty" value="" /></td>
+                                        <td><input type="text" id="row6_total" value="" /></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            
+                            <!-- מקט ייצור Overlay (bottom-left of PDF) -->
+                            <div class="overlay-filename-container" id="overlayFilenameContainer">
+                                <span class="overlay-filename-label">מקט ייצור:</span>
+                                <input type="text" class="overlay-filename-input" id="bottomFilename" placeholder="" />
+                            </div>
+                            
+                            <!-- PDF Container -->
+                            <div class="pdf-container" id="pdfContainer">
+                                <div class="pdf-placeholder">
+                                    <div class="pdf-placeholder-icon">📄</div>
+                                    <div class="pdf-placeholder-text">לא נטען קובץ PDF</div>
+                                    <div class="pdf-placeholder-subtext">העלה קבצים או התחבר ל-Google Drive</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pdf-controls">
+                            <button onclick="prevPage()">◀ הקודם</button>
+                            <span class="page-info">עמוד <span id="pageNum">0</span> מתוך <span id="pageCount">0</span></span>
+                            <button onclick="nextPage()">הבא ▶</button>
+                            <button onclick="zoomIn()">🔍+</button>
+                            <button onclick="zoomOut()">🔍-</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel - Files Only -->
+            <aside class="right-panel">
+                <!-- Files Upload -->
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <span class="panel-header-icon">📂</span>
+                        קבצים
+                    </div>
+                    <div class="panel-body">
+                        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                            <div class="upload-icon">📤</div>
+                            <div class="upload-text">לחץ להעלאת קבצי PDF</div>
+                            <div class="upload-subtext">או גרור ושחרר כאן</div>
+                        </div>
+                        <input type="file" id="fileInput" accept=".pdf" multiple onchange="handleFiles(this.files)">
+                        
+                        <div class="gdrive-section">
+                            <button class="gdrive-btn gdrive-connect" onclick="openGoogleDrivePicker()">
+                                <span>🔗</span> חיבור לדרייב
+                            </button>
+                            <button class="gdrive-btn gdrive-signout" onclick="signOutFromDrive()">
+                                <span>🚪</span> התנתק
+                            </button>
+                        </div>
+                        
+                        <div id="filesList" class="files-list-container" style="display: none;">
+                            <div id="filesContainer"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search -->
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <span class="panel-header-icon">🔍</span>
+                        חיפוש
+                    </div>
+                    <div class="panel-body">
+                        <input type="text" id="productCode" class="code-input" style="background: white; color: #333; border-color: #e0e0e0; margin-bottom: 10px;" placeholder="הקלד קוד מוצר לחיפוש..." />
+                        <button class="generate-btn" onclick="searchProduct()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            🔍 חפש בקבצים
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Hidden elements for compatibility -->
+    <div style="display: none;">
+        <span id="code"></span>
+        <span id="filename"></span>
+        <span id="filesize"></span>
+        <span id="pagecount"></span>
+        <span id="modified"></span>
+        <div id="productSheet" class="active"></div>
+        <div id="loadingPdf"></div>
+        <div id="pdfControls"></div>
+        <span id="totalPages"></span>
+        <span id="currentPage"></span>
+        <div id="printInstructions"></div>
+    </div>
+
+    <script>
+        // Application Version
+        const APP_VERSION = '301';
+        console.log(`%c🛠️ Furniture Product Sheet Generator v${APP_VERSION}`, 'font-size: 16px; font-weight: bold; color: #667eea;');
+        console.log('v301: Modern UI redesign with side-by-side layout');
+        console.log('v300: Live code editing with validation & bi-directional sync');
+        
+        // Google Drive API Configuration
+        const CLIENT_ID = '463379854842-rmgq8npvks6cp8vk15bh391orhutp725.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyBNzojcJO9CXjNRw-U8eMIVM3Qi1dml52g';
+        const SHARED_FOLDER_ID = '1v3iI9-Hc0EvXq3X2hwsXipz0Kb2FH_0f';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let accessToken = null;
+        let driveFilesCache = []; // Cache of files from Drive
+        let tokenExpiryTime = null;
+
+        // Load saved token from localStorage
+        function loadSavedToken() {
+            const savedToken = localStorage.getItem('google_drive_token');
+            const savedExpiry = localStorage.getItem('google_drive_token_expiry');
+            
+            if (savedToken && savedExpiry) {
+                const expiryTime = parseInt(savedExpiry);
+                const now = Date.now();
+                
+                // Check if token is still valid (with 5 minute buffer)
+                if (expiryTime > now + (5 * 60 * 1000)) {
+                    accessToken = savedToken;
+                    tokenExpiryTime = expiryTime;
+                    console.log('✓ Loaded saved token, expires in', Math.round((expiryTime - now) / 60000), 'minutes');
+                    return true;
+                } else {
+                    console.log('Saved token expired or expiring soon, will request new one');
+                    // Don't clear yet - we might be able to use it to refresh
+                }
+            }
+            return false;
+        }
+
+        // Save token to localStorage
+        function saveToken(token, expiresIn) {
+            accessToken = token;
+            // expiresIn is in seconds, convert to milliseconds and add to current time
+            tokenExpiryTime = Date.now() + (expiresIn * 1000);
+            
+            localStorage.setItem('google_drive_token', token);
+            localStorage.setItem('google_drive_token_expiry', tokenExpiryTime.toString());
+            
+            console.log('✓ Token saved, expires in', Math.round(expiresIn / 60), 'minutes');
+        }
+
+        // Clear saved token
+        function clearSavedToken() {
+            accessToken = null;
+            tokenExpiryTime = null;
+            localStorage.removeItem('google_drive_token');
+            localStorage.removeItem('google_drive_token_expiry');
+            console.log('Token cleared');
+        }
+
+        // Initialize Google API once the page loads
+        window.addEventListener('load', function() {
+            console.log('Page loaded, checking API status...');
+            
+            // Check if scripts loaded
+            let checkCount = 0;
+            const checkInterval = setInterval(() => {
+                checkCount++;
+                
+                // Initialize GAPI if script is loaded
+                if (window.gapiInited && typeof gapi !== 'undefined' && !gapiInited) {
+                    console.log('Initializing Google API client...');
+                    gapi.load('client', async () => {
+                        try {
+                            console.log('Setting API Key...');
+                            gapi.client.setApiKey(API_KEY);
+                            
+                            console.log('Loading Drive API v3...');
+                            await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+                            
+                            gapiInited = true;
+                            console.log('✓ Google API client initialized');
+                            console.log('✓ Google Drive API loaded');
+                            checkAndConnect();
+                        } catch (error) {
+                            console.error('Error initializing Google API:', error);
+                            console.error('Error details:', {
+                                message: error.message,
+                                status: error.status,
+                                result: error.result
+                            });
+                            
+                            // More specific error message
+                            let errorMsg = 'Failed to initialize Google API. ';
+                            if (error.status === 403) {
+                                errorMsg += 'API Key might be invalid or Google Drive API is not enabled.';
+                            } else if (error.status === 404) {
+                                errorMsg += 'Could not find Google Drive API.';
+                            } else {
+                                errorMsg += error.message;
+                            }
+                            
+                            showMessage('error', errorMsg);
+                            console.log('⚠️ Troubleshooting steps:');
+                            console.log('1. Verify Google Drive API is enabled: https://console.cloud.google.com/apis/library/drive.googleapis.com');
+                            console.log('2. Verify API Key is correct: ' + API_KEY);
+                            console.log('3. Check that API Key has no restrictions preventing Drive API access');
+                        }
+                    });
+                }
+                
+                // Initialize GIS if script is loaded
+                if (window.gisInited && typeof google !== 'undefined' && google.accounts && !gisInited) {
+                    console.log('Initializing Google Identity Services...');
+                    try {
+                        tokenClient = google.accounts.oauth2.initTokenClient({
+                            client_id: CLIENT_ID,
+                            scope: SCOPES,
+                            callback: '', // defined later
+                        });
+                        gisInited = true;
+                        console.log('✓ Google Identity Services initialized');
+                        checkAndConnect();
+                    } catch (error) {
+                        console.error('Error initializing GIS:', error);
+                        showMessage('error', 'Failed to initialize Google Identity Services: ' + error.message);
+                    }
+                }
+                
+                // Stop checking after both initialized or timeout
+                if ((gapiInited && gisInited) || checkCount > 20) {
+                    clearInterval(checkInterval);
+                    if (gapiInited && gisInited) {
+                        console.log('✓ All APIs ready!');
+                        console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
+                    } else {
+                        console.warn('⚠ APIs failed to initialize. gapi:', gapiInited, 'gis:', gisInited);
+                        if (!gapiInited) {
+                            showMessage('error', 'Google Drive API failed to load. Check console for details.');
+                        } else if (!gisInited) {
+                            showMessage('error', 'Google Sign-In failed to load. Check console for details.');
+                        }
+                    }
+                }
+            }, 500);
+        });
+
+        function checkAndConnect() {
+            if (gapiInited && gisInited) {
+                console.log('✓ All APIs ready!');
+                console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
+                
+                // Try to load saved token
+                const hasSavedToken = loadSavedToken();
+                
+                if (hasSavedToken) {
+                    // We have a valid saved token, auto-connect
+                    console.log('Auto-connecting with saved token...');
+                    showMessage('success', 'Reconnecting to Google Drive automatically...');
+                    
+                    // Load files immediately
+                    setTimeout(() => {
+                        listFilesFromFolder();
+                    }, 500);
+                    
+                    // Set up auto-refresh before token expires
+                    setupTokenRefresh();
+                } else {
+                    // No saved token, show manual connect option
+                    showMessage('success', 'Google Drive ready! Click "Connect to Google Drive" button to sign in.');
+                }
+            }
+        }
+
+        // Automatically refresh token before it expires
+        function setupTokenRefresh() {
+            if (!tokenExpiryTime) return;
+            
+            const now = Date.now();
+            const timeUntilExpiry = tokenExpiryTime - now;
+            
+            // Refresh 5 minutes before expiry
+            const refreshTime = timeUntilExpiry - (5 * 60 * 1000);
+            
+            if (refreshTime > 0) {
+                console.log('Token will auto-refresh in', Math.round(refreshTime / 60000), 'minutes');
+                
+                setTimeout(() => {
+                    console.log('Auto-refreshing token...');
+                    connectToGoogleDrive();
+                }, refreshTime);
+            } else {
+                console.log('Token expiring soon, will refresh on next action');
+            }
+        }
+
+        // PDF.js configuration
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Auto-load files from shared folder on page load
+        function connectToGoogleDrive() {
+            if (!gapiInited || !gisInited) {
+                showMessage('error', 'Google Drive API not ready yet. Please wait a moment and try again.');
+                console.log('API Status - gapi:', gapiInited, 'gis:', gisInited);
+                return;
+            }
+
+            if (!tokenClient) {
+                showMessage('error', 'Token client not initialized. Please refresh the page.');
+                return;
+            }
+
+            console.log('Requesting Google Sign-In...');
+            showMessage('success', 'Opening sign-in window...');
+
+            tokenClient.callback = async (response) => {
+                if (response.error !== undefined) {
+                    console.error('Auth error:', response);
+                    showMessage('error', 'Failed to connect to Google Drive: ' + response.error);
+                    return;
+                }
+                
+                console.log('✓ Successfully authenticated!');
+                
+                // Save the token with expiry time
+                const expiresIn = response.expires_in || 3600; // Default 1 hour if not provided
+                saveToken(response.access_token, expiresIn);
+                
+                await listFilesFromFolder();
+            };
+
+            try {
+                // Check if this is first time login (no token ever saved)
+                const hasEverLoggedIn = localStorage.getItem('google_drive_has_logged_in');
+                
+                if (!hasEverLoggedIn) {
+                    // First time - ask user to select account and consent
+                    console.log('First time login - requesting consent');
+                    tokenClient.requestAccessToken({ prompt: 'consent' });
+                    localStorage.setItem('google_drive_has_logged_in', 'true');
+                } else if (accessToken === null) {
+                    // Not first time, but no current token - use silent auth or select account
+                    console.log('Re-authenticating with prompt=""');
+                    tokenClient.requestAccessToken({ prompt: '' });
+                } else {
+                    // We have a token, just refresh it
+                    console.log('Refreshing existing token');
+                    tokenClient.requestAccessToken({ prompt: '' });
+                }
+            } catch (error) {
+                console.error('Error requesting access token:', error);
+                showMessage('error', 'Failed to open sign-in. Please allow popups and try again.');
+            }
+        }
+
+        function openGoogleDrivePicker() {
+            // This function is called when user clicks the "Connect to Google Drive" button
+            connectToGoogleDrive();
+        }
+
+        function signOutFromDrive() {
+            if (confirm('Are you sure you want to sign out from Google Drive? You will need to sign in again.')) {
+                clearSavedToken();
+                driveFilesCache = [];
+                loadedFiles = [];
+                currentPDF = null;
+                currentFileIndex = -1;
+                
+                // Clear the PDF display
+                const pdfContainer = document.getElementById('pdfContainer');
+                if (pdfContainer) {
+                    pdfContainer.innerHTML = '';
+                }
+                
+                // Hide controls
+                const controlsEl = document.getElementById('pdfControls');
+                if (controlsEl) {
+                    controlsEl.style.display = 'none';
+                }
+                
+                displayFilesList();
+                
+                showMessage('success', 'Signed out from Google Drive. Click "Connect to Google Drive" to sign in again.');
+                console.log('✓ Signed out successfully');
+            }
+        }
+
+        async function listFilesFromFolder() {
+            try {
+                // Verify we have an access token
+                if (!accessToken) {
+                    console.error('No access token available');
+                    showMessage('error', 'Not authenticated. Please click "Connect to Google Drive".');
+                    return;
+                }
+                
+                // Verify GAPI is loaded
+                if (!gapi || !gapi.client || !gapi.client.drive) {
+                    console.error('Google Drive API not loaded');
+                    showMessage('error', 'Google Drive API not ready. Please refresh the page.');
+                    return;
+                }
+                
+                showMessage('success', 'Loading files from Google Drive...');
+                
+                console.log('Querying folder ID:', SHARED_FOLDER_ID);
+                console.log('Using token:', accessToken.substring(0, 20) + '...');
+                
+                // IMPORTANT: Set the access token in gapi client
+                gapi.client.setToken({
+                    access_token: accessToken
+                });
+                
+                // Correct query for shared folders
+                // Include supportsAllDrives and includeItemsFromAllDrives for shared drives
+                const response = await gapi.client.drive.files.list({
+                    q: `'${SHARED_FOLDER_ID}' in parents and mimeType='application/pdf' and trashed=false`,
+                    fields: 'files(id, name, size, modifiedTime, mimeType)',
+                    pageSize: 1000,
+                    orderBy: 'name',
+                    supportsAllDrives: true,
+                    includeItemsFromAllDrives: true,
+                    corpora: 'allDrives' // Search in all drives including shared drives
+                });
+
+                console.log('API Response:', response);
+                
+                if (!response || !response.result) {
+                    console.error('Invalid API response:', response);
+                    showMessage('error', 'Invalid response from Google Drive API');
+                    return;
+                }
+                
+                driveFilesCache = response.result.files || [];
+                
+                console.log('Files found:', driveFilesCache.length);
+                
+                if (driveFilesCache.length === 0) {
+                    showMessage('error', 'No PDF files found in the folder. Make sure the folder is shared with your account and contains PDF files.');
+                    console.log('Troubleshooting:');
+                    console.log('1. Folder ID:', SHARED_FOLDER_ID);
+                    console.log('2. Make sure this folder is shared with your Google account');
+                    console.log('3. Make sure you have at least "Viewer" access');
+                    console.log('4. Check if the folder contains PDF files');
+                    return;
+                }
+
+                showMessage('success', `Found ${driveFilesCache.length} PDF files in Google Drive. Ready to search!`);
+                console.log('Files list:', driveFilesCache.map(f => f.name));
+                
+            } catch (error) {
+                console.error('Error listing files:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    status: error.status,
+                    result: error.result,
+                    body: error.body,
+                    stack: error.stack
+                });
+                
+                let errorMsg = 'Failed to load files from Google Drive. ';
+                
+                if (error.status === 404) {
+                    errorMsg += 'Folder not found or not accessible. Make sure the folder ID is correct and the folder is shared with your account.';
+                } else if (error.status === 403) {
+                    errorMsg += 'Access denied. Make sure the folder is shared with your Google account with at least "Viewer" permission.';
+                } else if (error.status === 401) {
+                    errorMsg += 'Authentication expired. Please click "Connect to Google Drive" again.';
+                    clearSavedToken(); // Clear invalid token
+                } else if (error.status === 400) {
+                    errorMsg += 'Bad request. The saved token may be invalid. Please sign out and sign in again.';
+                    clearSavedToken(); // Clear invalid token
+                } else if (error.message) {
+                    errorMsg += error.message;
+                } else {
+                    errorMsg += 'Unknown error occurred. Check console for details.';
+                }
+                
+                showMessage('error', errorMsg);
+            }
+        }
+
+        function openGoogleDrivePicker() {
+            // Check if user needs to set up API credentials
+            if (CLIENT_ID === 'YOUR_CLIENT_ID' || API_KEY === 'YOUR_API_KEY' || SHARED_FOLDER_ID === 'YOUR_SHARED_FOLDER_ID') {
+                showMessage('error', 'Google Drive integration requires configuration. Please see the setup section above.');
+                return;
+            }
+
+            connectToGoogleDrive();
+        }
+
+        async function searchAndLoadFromDrive(productionCode) {
+            if (driveFilesCache.length === 0) {
+                showMessage('error', 'No files loaded from Google Drive. Click "Connect to Google Drive" button.');
+                return;
+            }
+
+            // Search for matching file
+            const codeUpper = productionCode.toUpperCase();
+            let foundFile = null;
+
+            for (const file of driveFilesCache) {
+                const fileNameUpper = file.name.toUpperCase().replace('.PDF', '');
+                
+                // Check if the filename contains or matches the production code
+                if (fileNameUpper.includes(codeUpper) || codeUpper.includes(fileNameUpper)) {
+                    foundFile = file;
+                    break;
+                }
+            }
+
+            if (foundFile) {
+                showMessage('success', `Found matching file: ${foundFile.name}. Downloading...`);
+                await downloadAndDisplayFromDrive(foundFile.id, foundFile.name);
+            } else {
+                showMessage('error', `No matching file found in Google Drive for: ${productionCode}`);
+                console.log('Available files:', driveFilesCache.map(f => f.name));
+            }
+        }
+
+        async function downloadAndDisplayFromDrive(fileId, fileName) {
+            try {
+                showMessage('success', `Downloading ${fileName}...`);
+                console.log('Downloading file ID:', fileId);
+                
+                // Make sure we have an access token
+                if (!accessToken) {
+                    throw new Error('No access token available. Please reconnect to Google Drive.');
+                }
+                
+                console.log('Using access token:', accessToken.substring(0, 20) + '...');
+                
+                // Download PDF using fetch with proper headers
+                const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                
+                console.log('Response status:', response.status, response.statusText);
+                console.log('Response headers:', {
+                    contentType: response.headers.get('content-type'),
+                    contentLength: response.headers.get('content-length')
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                // Get the binary data
+                const arrayBuffer = await response.arrayBuffer();
+                console.log('Downloaded', arrayBuffer.byteLength, 'bytes');
+                
+                // Verify it's a PDF by checking the header
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const pdfHeader = String.fromCharCode(...uint8Array.slice(0, 5));
+                console.log('File header:', pdfHeader, '(should be "%PDF-")');
+                
+                if (!pdfHeader.startsWith('%PDF-')) {
+                    console.warn('Warning: File does not start with PDF header!');
+                    console.log('First 100 bytes:', String.fromCharCode(...uint8Array.slice(0, 100)));
+                }
+                
+                // Convert to File object
+                const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+                const file = new File([blob], fileName, { 
+                    type: 'application/pdf',
+                    lastModified: Date.now()
+                });
+                
+                console.log('Created file object:', {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type
+                });
+                
+                // Add to loaded files if not already there
+                const existingIndex = loadedFiles.findIndex(f => f.name === file.name);
+                if (existingIndex === -1) {
+                    loadedFiles.push(file);
+                    displayFilesList();
+                } else {
+                    // Replace existing file
+                    loadedFiles[existingIndex] = file;
+                    displayFilesList();
+                }
+                
+                // Display the file
+                const index = loadedFiles.findIndex(f => f.name === file.name);
+                if (index !== -1) {
+                    console.log('Displaying file at index:', index);
+                    await displayFile(index);
+                    showMessage('success', `Loaded and displaying: ${fileName}`);
+                } else {
+                    console.error('File not found in loadedFiles after adding');
+                    showMessage('error', 'Failed to add file to list');
+                }
+                
+            } catch (error) {
+                console.error('Error downloading file:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                showMessage('error', `Failed to download file: ${fileName}. ${error.message}`);
+            }
+        }
+
+        let loadedFiles = [];
+        let currentPDF = null;
+        let currentPage = 1;
+        let totalPages = 0;
+        let currentFileIndex = -1;
+
+        const uploadArea = document.getElementById('uploadArea');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        function handleFiles(files) {
+            console.log('handleFiles called with:', files);
+            console.log('Number of files:', files.length);
+            
+            const pdfFiles = Array.from(files).filter(file => {
+                console.log('File:', file.name, 'Type:', file.type);
+                return file.type === 'application/pdf';
+            });
+            
+            console.log('PDF files found:', pdfFiles.length);
+            
+            if (pdfFiles.length === 0) {
+                showMessage('error', 'Please select PDF files only');
+                return;
+            }
+
+            pdfFiles.forEach(file => {
+                if (!loadedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                    loadedFiles.push(file);
+                    console.log('Added file:', file.name);
+                }
+            });
+
+            displayFilesList();
+            showMessage('success', `Loaded ${pdfFiles.length} PDF file(s). Total files: ${loadedFiles.length}`);
+        }
+
+        function displayFilesList() {
+            const container = document.getElementById('filesContainer');
+            const filesList = document.getElementById('filesList');
+            
+            if (loadedFiles.length === 0) {
+                filesList.style.display = 'none';
+                return;
+            }
+
+            filesList.style.display = 'block';
+            container.innerHTML = loadedFiles.map((file, index) => {
+                const code = file.name.replace('.pdf', '');
+                const size = formatFileSize(file.size);
+                const activeClass = index === currentFileIndex ? 'active' : '';
+                return `
+                    <div class="file-item ${activeClass}" onclick="displayFile(${index})">
+                        <span class="file-icon">📄</span>
+                        <div class="file-info">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${size}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function displayFile(index) {
+            const file = loadedFiles[index];
+            if (!file) return;
+
+            currentFileIndex = index;
+            displayFilesList();
+
+            const sheet = document.getElementById('productSheet');
+            if (sheet) sheet.classList.add('active');
+
+            const code = file.name.replace('.pdf', '');
+            const codeEl = document.getElementById('code');
+            const filenameEl = document.getElementById('filename');
+            const filesizeEl = document.getElementById('filesize');
+            const modifiedEl = document.getElementById('modified');
+            
+            if (codeEl) codeEl.textContent = code;
+            if (filenameEl) filenameEl.textContent = file.name;
+            if (filesizeEl) filesizeEl.textContent = formatFileSize(file.size);
+            if (modifiedEl) modifiedEl.textContent = new Date(file.lastModified).toLocaleString();
+
+            const bottomFilename = document.getElementById('bottomFilename');
+            if (bottomFilename) {
+                bottomFilename.value = file.name.replace('.pdf', '');
+            }
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                currentPDF = pdf;
+                totalPages = pdf.numPages;
+                currentPage = 1;
+                currentZoom = 1.0; // Reset zoom
+
+                // Update all page count elements
+                const pagecountEl = document.getElementById('pagecount');
+                const pageCountEl = document.getElementById('pageCount');
+                const totalPagesEl = document.getElementById('totalPages');
+                const pageNumEl = document.getElementById('pageNum');
+                const currentPageEl = document.getElementById('currentPage');
+                
+                if (pagecountEl) pagecountEl.textContent = totalPages;
+                if (pageCountEl) pageCountEl.textContent = totalPages;
+                if (totalPagesEl) totalPagesEl.textContent = totalPages;
+                if (pageNumEl) pageNumEl.textContent = currentPage;
+                if (currentPageEl) currentPageEl.textContent = currentPage;
+
+                await renderPage(currentPage);
+                showMessage('success', `מציג: ${file.name} (${totalPages} עמודים)`);
+
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                showMessage('error', 'שגיאה בטעינת PDF: ' + error.message);
+            }
+        }
+
+        async function renderPage(pageNum) {
+            if (!currentPDF) return;
+
+            const loadingEl = document.getElementById('loadingPdf');
+            if (loadingEl) loadingEl.style.display = 'block';
+
+            try {
+                const page = await currentPDF.getPage(pageNum);
+                
+                // Get container width to scale PDF appropriately
+                const container = document.getElementById('pdfContainer');
+                const containerWidth = container ? container.clientWidth - 40 : 800; // Account for padding
+                
+                // Calculate scale to fit container, then apply zoom
+                const viewport = page.getViewport({ scale: 1 });
+                const baseScale = Math.min(containerWidth / viewport.width, 2.0);
+                const scale = baseScale * currentZoom;
+                const scaledViewport = page.getViewport({ scale: scale });
+
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = scaledViewport.width;
+                canvas.height = scaledViewport.height;
+                canvas.className = 'pdf-canvas';
+                canvas.style.maxWidth = '100%';
+                canvas.style.height = 'auto';
+
+                await page.render({
+                    canvasContext: context,
+                    viewport: scaledViewport
+                }).promise;
+
+                if (container) {
+                    container.innerHTML = '';
+                    container.appendChild(canvas);
+                }
+
+                if (loadingEl) loadingEl.style.display = 'none';
+                
+                // Update both old and new element IDs
+                const pageNumEl = document.getElementById('pageNum');
+                const currentPageEl = document.getElementById('currentPage');
+                const pageCountEl = document.getElementById('pageCount');
+                const totalPagesEl = document.getElementById('totalPages');
+                
+                if (pageNumEl) pageNumEl.textContent = pageNum;
+                if (currentPageEl) currentPageEl.textContent = pageNum;
+                if (pageCountEl) pageCountEl.textContent = totalPages;
+                if (totalPagesEl) totalPagesEl.textContent = totalPages;
+
+            } catch (error) {
+                console.error('Error rendering page:', error);
+                showMessage('error', 'Error rendering page: ' + error.message);
+                if (loadingEl) loadingEl.style.display = 'none';
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPage(currentPage);
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+            }
+        }
+
+        let currentZoom = 1.0;
+        
+        function zoomIn() {
+            currentZoom = Math.min(currentZoom + 0.25, 3.0);
+            if (currentPDF) renderPage(currentPage);
+        }
+        
+        function zoomOut() {
+            currentZoom = Math.max(currentZoom - 0.25, 0.5);
+            if (currentPDF) renderPage(currentPage);
+        }
+
+        function searchProduct() {
+            const code = document.getElementById('productCode').value.trim();
+            
+            if (!code) {
+                showMessage('error', 'Please enter a product code');
+                return;
+            }
+
+            const searchTerm = code.toLowerCase();
+            const index = loadedFiles.findIndex(file => 
+                file.name.toLowerCase().includes(searchTerm)
+            );
+
+            if (index === -1) {
+                showMessage('error', `No file found matching "${code}". Available files: ${loadedFiles.map(f => f.name.replace('.pdf', '')).join(', ')}`);
+                return;
+            }
+
+            displayFile(index);
+        }
+
+        function clearFiles() {
+            if (confirm('לנקות את כל הקבצים ולאפס את הטופס?')) {
+                loadedFiles = [];
+                currentPDF = null;
+                currentFileIndex = -1;
+                currentZoom = 1.0;
+                displayFilesList();
+                
+                // Clear the PDF display area and show placeholder
+                const pdfContainer = document.getElementById('pdfContainer');
+                if (pdfContainer) {
+                    pdfContainer.innerHTML = `
+                        <div class="pdf-placeholder">
+                            <div class="pdf-placeholder-icon">📄</div>
+                            <div class="pdf-placeholder-text">לא נטען קובץ PDF</div>
+                            <div class="pdf-placeholder-subtext">העלה קבצים או התחבר ל-Google Drive</div>
+                        </div>
+                    `;
+                }
+                
+                // Reset page counters
+                const pageNumEl = document.getElementById('pageNum');
+                const pageCountEl = document.getElementById('pageCount');
+                if (pageNumEl) pageNumEl.textContent = '0';
+                if (pageCountEl) pageCountEl.textContent = '0';
+                
+                // Reset product info
+                const codeEl = document.getElementById('code');
+                const filenameEl = document.getElementById('filename');
+                const filesizeEl = document.getElementById('filesize');
+                const pagecountEl = document.getElementById('pagecount');
+                const modifiedEl = document.getElementById('modified');
+                
+                if (codeEl) codeEl.textContent = '-';
+                if (filenameEl) filenameEl.textContent = '-';
+                if (filesizeEl) filesizeEl.textContent = '-';
+                if (pagecountEl) pagecountEl.textContent = '-';
+                if (modifiedEl) modifiedEl.textContent = '-';
+                
+                // Clear bottom filename (מקט ייצור)
+                const bottomFilename = document.getElementById('bottomFilename');
+                if (bottomFilename) bottomFilename.value = '';
+                
+                // Clear all purchase table rows (רכש)
+                for (let i = 1; i <= 6; i++) {
+                    const purchase = document.getElementById(`row${i}_purchase`);
+                    const drawing = document.getElementById(`row${i}_drawing`);
+                    const finish = document.getElementById(`row${i}_finish`);
+                    const total = document.getElementById(`row${i}_total`);
+                    
+                    if (purchase) purchase.value = '';
+                    if (drawing) drawing.value = '';
+                    if (finish) finish.value = '';
+                    if (total) total.value = '';
+                }
+                
+                clearMessages();
+                showMessage('success', 'כל הקבצים נוקו והטופס אופס');
+            }
+        }
+
+        async function loadPDF(file) {
+            // Find the index of the file in loadedFiles
+            const index = loadedFiles.findIndex(f => f.name === file.name && f.size === file.size);
+            if (index !== -1) {
+                await displayFile(index);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function showMessage(type, text) {
+            clearMessages();
+            const messageId = type === 'error' ? 'errorMessage' : 'successMessage';
+            const element = document.getElementById(messageId);
+            if (!element) return;
+            
+            element.textContent = text;
+            element.classList.add('active');
+            element.classList.add(type);
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    element.classList.remove('active');
+                }, 5000);
+            }
+        }
+
+        function clearMessages() {
+            const errorEl = document.getElementById('errorMessage');
+            const successEl = document.getElementById('successMessage');
+            if (errorEl) errorEl.classList.remove('active');
+            if (successEl) successEl.classList.remove('active');
+        }
+
+        function savePDF() {
+            if (!currentPDF) {
+                showMessage('error', 'אנא טען קובץ PDF קודם');
+                return;
+            }
+
+            showMessage('success', 'פותח חלון הדפסה... בחר "שמור כ-PDF"');
+            
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+
+        function updateTableFromCode() {
+            const code = document.getElementById('bottomFilename').value.trim();
+            const row1Drawing = document.getElementById('row1_drawing');
+            
+            if (!row1Drawing) return;
+            
+            if (!code || code.length < 10) {
+                row1Drawing.value = '';
+                row1Drawing.style.width = '80px';
+                return;
+            }
+
+            const parts = code.split('_');
+            
+            if (parts.length >= 4) {
+                const sizeMaterialPart = parts[2];
+                
+                const sizeMatch = sizeMaterialPart.match(/^(\d{4})(.*)$/);
+                
+                if (sizeMatch) {
+                    const sizeCode = sizeMatch[1];
+                    const material = sizeMatch[2].toUpperCase();
+                    
+                    const width = parseInt(sizeCode.substring(0, 2)) * 10;
+                    const height = parseInt(sizeCode.substring(2, 4)) * 10;
+                    
+                    const sizeVariant = parts[3] || '';
+                    const finish = parts[4] || '';
+                    
+                    let drawingCode = `W_${width}-${height}`;
+                    
+                    if (material) {
+                        drawingCode += material;
+                    }
+                    
+                    if (sizeVariant) {
+                        drawingCode += `_${sizeVariant}`;
+                    }
+                    
+                    if (finish) {
+                        drawingCode += `_${finish}`;
+                    }
+                    
+                    row1Drawing.value = drawingCode;
+                    row1Drawing.style.width = ((drawingCode.length + 2) * 8) + 'px';
+                    
+                    console.log('Input Code:', code);
+                    console.log('Size:', width, 'x', height);
+                    console.log('Material:', material);
+                    console.log('Size Variant:', sizeVariant);
+                    console.log('Finish:', finish);
+                    console.log('Output Drawing Code:', drawingCode);
+                } else {
+                    row1Drawing.value = '';
+                    row1Drawing.style.width = '80px';
+                }
+            } else {
+                row1Drawing.value = '';
+                row1Drawing.style.width = '80px';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const allInputs = document.querySelectorAll('.editable-table input');
+            allInputs.forEach(input => {
+                // Set initial width based on content
+                const setWidth = () => {
+                    const length = input.value.length || 1;
+                    input.style.width = (length * 7 + 10) + 'px';
+                };
+                
+                setWidth();
+                
+                input.addEventListener('input', setWidth);
+            });
+        });
+
+        document.getElementById('productCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProduct();
+            }
+        });
+
+        // GLOBAL HELPER FUNCTIONS - Must be accessible from generateProductionCode
+        
+        // Determine correct leg size based on table shape and dimensions
+        function getCorrectLegSize(shape, length, width) {
+            const maxDim = Math.max(parseInt(length), parseInt(width));
+            const minDim = Math.min(parseInt(length), parseInt(width));
+            
+            // For round, square, and rounded square tables
+            if (shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל') {
+                if (maxDim >= 80 && maxDim <= 110) {
+                    return '5030'; // KON_5030
+                } else if (maxDim > 110 && maxDim <= 120) {
+                    return '6030'; // KON_6030
+                } else if (maxDim > 120 && maxDim <= 150) {
+                    return '7035'; // KON_7035
+                } else if (maxDim > 150 && maxDim <= 160) {
+                    return '8040'; // KON_8040
+                } else if (maxDim > 160 && maxDim <= 180) {
+                    return '9045'; // KON_9045
+                }
+            }
+            
+            // For ellipse and rectangle tables
+            if (shape === 'אליפסה' || shape === 'מלבן') {
+                const widthNum = parseInt(width);
+                
+                // Width determines the leg size
+                if (widthNum >= 80 && widthNum <= 100) {
+                    return '5030'; // KON_5030
+                } else if (widthNum > 100 && widthNum <= 120) {
+                    return '6030'; // KON_6030
+                } else if (widthNum > 120 && widthNum <= 130) {
+                    return '7035'; // KON_7035
+                } else if (widthNum > 130 && widthNum <= 140) {
+                    return '8040'; // KON_8040
+                } else if (widthNum > 140) {
+                    return '9045'; // KON_9045
+                }
+            }
+            
+            return '5030'; // Default
+        }
+        
+        // Determine meeting table type (MS1/ML1/ML2/ML3/EL1/EL2/EL3) and leg count
+        // Returns: { type, legs, sizeSuffix, possibleOptions }
+        // Size suffix rules:
+        // - S = any dimension > 120
+        // - SB = specific large configs (330-360/130 or 350-360/140)
+        function getMeetingTableTypeAndLegs(shape, length, width) {
+            const len = parseInt(length);
+            const wid = parseInt(width);
+            const maxDim = Math.max(len, wid);
+            
+            // MS1 - Single leg for round, square, rounded square (any size)
+            if (shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל') {
+                const sizeSuffix = maxDim > 120 ? 'S' : '';
+                return { type: 'MS1', legs: 1, sizeSuffix: sizeSuffix, possibleOptions: [{ type: 'MS1', legs: 1 }] };
+            }
+            
+            // ML and EL for rectangle and ellipse
+            if (shape === 'מלבן' || shape === 'אליפסה') {
+                const prefix = shape === 'מלבן' ? 'ML' : 'EL';
+                
+                // ML3/EL3 - Three legs (330-360 length)
+                // 330-360/120 = S suffix
+                if (len >= 330 && len <= 360 && wid === 120) {
+                    return { type: `${prefix}3`, legs: 3, sizeSuffix: 'S', possibleOptions: [{ type: `${prefix}3`, legs: 3 }] };
+                }
+                // 330-360/130 = SB suffix
+                if (len >= 330 && len <= 360 && wid === 130) {
+                    return { type: `${prefix}3`, legs: 3, sizeSuffix: 'SB', possibleOptions: [{ type: `${prefix}3`, legs: 3 }] };
+                }
+                // 350-360/140 = SB suffix
+                if (len >= 350 && len <= 360 && wid === 140) {
+                    return { type: `${prefix}3`, legs: 3, sizeSuffix: 'SB', possibleOptions: [{ type: `${prefix}3`, legs: 3 }] };
+                }
+                
+                // ML1/EL1 - Single leg (200-220/100-120)
+                if (len >= 200 && len <= 220 && wid >= 100 && wid <= 120) {
+                    const sizeSuffix = maxDim > 120 ? 'S' : '';
+                    // This range can also be ML2 with 2 legs - give option
+                    return { 
+                        type: `${prefix}1`, 
+                        legs: 1, 
+                        sizeSuffix: sizeSuffix, 
+                        possibleOptions: [
+                            { type: `${prefix}1`, legs: 1 },
+                            { type: `${prefix}2`, legs: 2 }
+                        ] 
+                    };
+                }
+                
+                // ML2/EL2 ranges - Two legs
+                // 200-240/80-120
+                if (len >= 200 && len <= 240 && wid >= 80 && wid <= 120) {
+                    const sizeSuffix = maxDim > 120 ? 'S' : '';
+                    return { type: `${prefix}2`, legs: 2, sizeSuffix: sizeSuffix, possibleOptions: [{ type: `${prefix}2`, legs: 2 }] };
+                }
+                // 220-240/130-140
+                if (len >= 220 && len <= 240 && wid >= 130 && wid <= 140) {
+                    return { type: `${prefix}2`, legs: 2, sizeSuffix: 'S', possibleOptions: [{ type: `${prefix}2`, legs: 2 }] };
+                }
+                // 250-320/100-120
+                if (len >= 250 && len <= 320 && wid >= 100 && wid <= 120) {
+                    return { type: `${prefix}2`, legs: 2, sizeSuffix: 'S', possibleOptions: [{ type: `${prefix}2`, legs: 2 }] };
+                }
+                // 250-320/130
+                if (len >= 250 && len <= 320 && wid === 130) {
+                    return { type: `${prefix}2`, legs: 2, sizeSuffix: 'S', possibleOptions: [{ type: `${prefix}2`, legs: 2 }] };
+                }
+                // 250-340/140 (but not 350-360 which is ML3)
+                if (len >= 250 && len <= 340 && wid === 140) {
+                    return { type: `${prefix}2`, legs: 2, sizeSuffix: 'S', possibleOptions: [{ type: `${prefix}2`, legs: 2 }] };
+                }
+            }
+            
+            // Default fallback for unexpected combinations
+            console.warn('Unexpected table configuration:', shape, length, width);
+            return { type: 'MS1', legs: 1, sizeSuffix: '', possibleOptions: [] };
+        }
+        
+        // Check if a size combination is valid for meeting tables (rectangle/ellipse)
+        function isValidMeetingSizeCombination(shape, length, width) {
+            const len = parseInt(length);
+            const wid = parseInt(width);
+            
+            // Round, square, rounded square - no restrictions (handled by shape limits)
+            if (shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל') {
+                return true;
+            }
+            
+            // Rectangle and Ellipse - specific valid combinations
+            if (shape === 'מלבן' || shape === 'אליפסה') {
+                // ML1/ML2: 200-220/100-120
+                if (len >= 200 && len <= 220 && wid >= 100 && wid <= 120) return true;
+                // ML2: 200-240/80-120 (includes above but also 80-99 width)
+                if (len >= 200 && len <= 240 && wid >= 80 && wid <= 120) return true;
+                // ML2: 220-240/130-140
+                if (len >= 220 && len <= 240 && wid >= 130 && wid <= 140) return true;
+                // ML2: 250-320/100-120
+                if (len >= 250 && len <= 320 && wid >= 100 && wid <= 120) return true;
+                // ML2: 250-320/130
+                if (len >= 250 && len <= 320 && wid === 130) return true;
+                // ML2: 250-340/140
+                if (len >= 250 && len <= 340 && wid === 140) return true;
+                // ML3: 330-360/120
+                if (len >= 330 && len <= 360 && wid === 120) return true;
+                // ML3: 330-360/130
+                if (len >= 330 && len <= 360 && wid === 130) return true;
+                // ML3: 350-360/140
+                if (len >= 350 && len <= 360 && wid === 140) return true;
+                
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Get valid width options for a given length (for rectangle/ellipse meeting tables)
+        function getValidWidthsForLength(shape, length) {
+            const len = parseInt(length);
+            const validWidths = new Set();
+            
+            if (shape !== 'מלבן' && shape !== 'אליפסה') {
+                return null; // No restrictions for other shapes
+            }
+            
+            // Check each possible width
+            for (let w = 80; w <= 140; w += 10) {
+                if (isValidMeetingSizeCombination(shape, len, w)) {
+                    validWidths.add(w);
+                }
+            }
+            
+            return validWidths;
+        }
+        
+        // Get valid length options for a given width (for rectangle/ellipse meeting tables)
+        function getValidLengthsForWidth(shape, width) {
+            const wid = parseInt(width);
+            const validLengths = new Set();
+            
+            if (shape !== 'מלבן' && shape !== 'אליפסה') {
+                return null; // No restrictions for other shapes
+            }
+            
+            // Check each possible length
+            for (let l = 200; l <= 360; l += 10) {
+                if (isValidMeetingSizeCombination(shape, l, wid)) {
+                    validLengths.add(l);
+                }
+            }
+            
+            return validLengths;
+        }
+        
+        // Validate production code against דגם table rules
+        // Returns { valid: boolean, errors: string[], parsed: object }
+        function validateProductionCode(code) {
+            const result = { valid: false, errors: [], parsed: null };
+            
+            if (!code || code.trim() === '') {
+                result.errors.push('קוד ריק');
+                return result;
+            }
+            
+            const mainCode = code.trim().toUpperCase();
+            const parts = mainCode.split('_');
+            
+            if (parts.length < 7) {
+                result.errors.push('פורמט קוד לא תקין - נדרשים לפחות 7 חלקים');
+                return result;
+            }
+            
+            const legCodeBase = parts[0];
+            const tableTypeCode = parts[1];
+            const sizeShape = parts[2];
+            const thickness = parts[3];
+            const chamferCode = parts[4];
+            const electricityCode = parts[5];
+            const colorCode = parts[6];
+            
+            // Validate leg code
+            const validLegs = ['KON', 'SAN', 'TUB', 'OVA'];
+            if (!validLegs.includes(legCodeBase)) {
+                result.errors.push(`סוג רגל לא תקין: ${legCodeBase}. אפשרויות: ${validLegs.join(', ')}`);
+            }
+            
+            // Validate table type code
+            const validTableTypes = ['MS1', 'ML1', 'ML2', 'ML3', 'EL1', 'EL2', 'EL3', 'DN1', 'DN2'];
+            if (!validTableTypes.includes(tableTypeCode)) {
+                result.errors.push(`סוג שולחן לא תקין: ${tableTypeCode}. אפשרויות: ${validTableTypes.join(', ')}`);
+            }
+            
+            // Parse size and shape
+            const sizeMatch = sizeShape.match(/^(\d{2})(\d{2})([RCF])(S?B?)$/);
+            if (!sizeMatch) {
+                result.errors.push(`פורמט מידות לא תקין: ${sizeShape}. דוגמה: 3514CS`);
+                return result;
+            }
+            
+            const lengthCode = sizeMatch[1];
+            const widthCode = sizeMatch[2];
+            const shapeLetter = sizeMatch[3];
+            const sizeSuffix = sizeMatch[4] || '';
+            
+            const length = parseInt(lengthCode) * 10;
+            const width = parseInt(widthCode) * 10;
+            
+            // Validate thickness
+            if (!thickness.match(/^T(17|28)$/)) {
+                result.errors.push(`עובי פלטה לא תקין: ${thickness}. אפשרויות: T17, T28`);
+            }
+            
+            // Validate chamfer
+            const validChamfers = ['C0', 'C4', 'CL', 'CR'];
+            if (!validChamfers.includes(chamferCode)) {
+                result.errors.push(`מגרעת לא תקינה: ${chamferCode}. אפשרויות: ${validChamfers.join(', ')}`);
+            }
+            
+            // Validate electricity
+            const validElectricity = ['X5', 'X3', 'PO', 'NN'];
+            if (!validElectricity.includes(electricityCode)) {
+                result.errors.push(`חשמל לא תקין: ${electricityCode}. אפשרויות: ${validElectricity.join(', ')}`);
+            }
+            
+            // Validate color
+            const validColors = ['WHT', 'BLK', 'NAT'];
+            if (!validColors.includes(colorCode)) {
+                result.errors.push(`צבע לא תקין: ${colorCode}. אפשרויות: ${validColors.join(', ')}`);
+            }
+            
+            // Validate table type matches shape
+            const isCafeteria = tableTypeCode.startsWith('DN');
+            const isMeeting = tableTypeCode.startsWith('MS') || tableTypeCode.startsWith('ML') || tableTypeCode.startsWith('EL');
+            
+            // Determine shape from letter
+            let shape = '';
+            if (shapeLetter === 'R') shape = 'עגול';
+            else if (shapeLetter === 'C') {
+                // C can be square or rectangle - determine by dimensions and table type
+                if (length === width && length <= 120) shape = 'ריבוע';
+                else shape = 'מלבן';
+            }
+            else if (shapeLetter === 'F') {
+                // F can be rounded square or ellipse
+                if (length === width) shape = 'ריבוע מעוגל';
+                else shape = 'אליפסה';
+            }
+            
+            // Validate MS1 should be round/square/rounded square
+            if (tableTypeCode === 'MS1') {
+                if (shape !== 'עגול' && shape !== 'ריבוע' && shape !== 'ריבוע מעוגל') {
+                    result.errors.push(`MS1 חייב להיות עגול, ריבוע או ריבוע מעוגל`);
+                }
+            }
+            
+            // Validate ML/EL should be rectangle/ellipse
+            if (tableTypeCode.startsWith('ML') && shape !== 'מלבן') {
+                result.errors.push(`${tableTypeCode} חייב להיות מלבן`);
+            }
+            if (tableTypeCode.startsWith('EL') && shape !== 'אליפסה') {
+                result.errors.push(`${tableTypeCode} חייב להיות אליפסה`);
+            }
+            
+            // Validate DN1 should be round/square/rounded square
+            if (tableTypeCode === 'DN1') {
+                if (shape !== 'עגול' && shape !== 'ריבוע' && shape !== 'ריבוע מעוגל') {
+                    result.errors.push(`DN1 חייב להיות עגול, ריבוע או ריבוע מעוגל`);
+                }
+            }
+            
+            // Validate DN2 should be rectangle/ellipse
+            if (tableTypeCode === 'DN2') {
+                if (shape !== 'מלבן' && shape !== 'אליפסה') {
+                    result.errors.push(`DN2 חייב להיות מלבן או אליפסה`);
+                }
+            }
+            
+            // Validate meeting table size combinations
+            if (isMeeting && (shape === 'מלבן' || shape === 'אליפסה')) {
+                if (!isValidMeetingSizeCombination(shape, length, width)) {
+                    result.errors.push(`שילוב מידות לא תקין לשולחן ישיבות: ${length}x${width}`);
+                }
+                
+                // Validate table type matches size
+                const expectedMeetingInfo = getMeetingTableTypeAndLegs(shape, length, width);
+                const expectedPrefix = shape === 'מלבן' ? 'ML' : 'EL';
+                
+                // Check if the table type is valid for these dimensions
+                const validTypesForSize = expectedMeetingInfo.possibleOptions.map(opt => opt.type);
+                if (!validTypesForSize.includes(tableTypeCode)) {
+                    result.errors.push(`סוג שולחן ${tableTypeCode} לא מתאים למידות ${length}x${width}. אפשרויות: ${validTypesForSize.join(', ')}`);
+                }
+            }
+            
+            // Validate electricity for meeting tables (cannot be NN)
+            if (isMeeting && electricityCode === 'NN') {
+                result.errors.push(`שולחן ישיבות חייב לכלול חשמל (לא NN)`);
+            }
+            
+            // Validate electricity for cafeteria (should be NN)
+            if (isCafeteria && electricityCode !== 'NN') {
+                result.errors.push(`שולחן קפיטריה צריך להיות ללא חשמל (NN)`);
+            }
+            
+            // If no errors, set valid and parsed data
+            if (result.errors.length === 0) {
+                result.valid = true;
+                result.parsed = {
+                    legCodeBase,
+                    tableTypeCode,
+                    length,
+                    width,
+                    shapeLetter,
+                    sizeSuffix,
+                    shape,
+                    woodThickness: thickness.substring(1),
+                    chamferCode,
+                    electricityCode,
+                    colorCode,
+                    isCafeteria,
+                    isMeeting
+                };
+            }
+            
+            return result;
+        }
+        
+        // Update דגם table from parsed production code
+        function updateModelTableFromCode(parsed) {
+            if (!parsed) return;
+            
+            // Map values back to Hebrew options
+            const tableTypeSelect = document.getElementById('table-type-select');
+            const shapeSelect = document.getElementById('shape-select');
+            const legSelect = document.getElementById('leg-select');
+            const lengthSelect = document.getElementById('length-select');
+            const widthSelect = document.getElementById('width-select');
+            const woodThicknessSelect = document.getElementById('wood-thickness-select');
+            const chamferSelect = document.getElementById('chamfer-select');
+            const electricitySelect = document.getElementById('electricity-select');
+            const colorSelect = document.getElementById('color-select');
+            
+            // Set table type
+            if (tableTypeSelect) {
+                tableTypeSelect.value = parsed.isCafeteria ? 'קפיטריה' : 'ישיבות';
+            }
+            
+            // Set shape
+            if (shapeSelect) {
+                shapeSelect.value = parsed.shape;
+            }
+            
+            // Set leg type
+            if (legSelect) {
+                const legMap = { 'KON': 'konus', 'SAN': 'sand', 'TUB': 'tube', 'OVA': 'oval' };
+                legSelect.value = legMap[parsed.legCodeBase] || '';
+            }
+            
+            // Set length
+            if (lengthSelect) {
+                lengthSelect.value = parsed.length.toString();
+            }
+            
+            // Set width
+            if (widthSelect) {
+                widthSelect.value = parsed.width.toString();
+            }
+            
+            // Set wood thickness
+            if (woodThicknessSelect) {
+                woodThicknessSelect.value = parsed.woodThickness;
+            }
+            
+            // Set chamfer
+            if (chamferSelect) {
+                const chamferMap = { 'C0': '0', 'C4': '4', 'CL': 'שמאל', 'CR': 'ימין' };
+                chamferSelect.value = chamferMap[parsed.chamferCode] || '';
+            }
+            
+            // Set electricity
+            if (electricitySelect) {
+                const electricityMap = { 'X5': 'גדול (5)', 'X3': 'בינוני (3)', 'PO': 'עיגול קטן (point)', 'NN': 'ללא' };
+                electricitySelect.value = electricityMap[parsed.electricityCode] || '';
+            }
+            
+            // Set color
+            if (colorSelect) {
+                const colorMap = { 'WHT': 'לבן', 'BLK': 'שחור', 'NAT': 'עץ טבעי' };
+                colorSelect.value = colorMap[parsed.colorCode] || '';
+            }
+            
+            // Update field validation colors
+            updateAllFieldsValidation();
+        }
+        
+        // Function to update all field validation colors (called from outside DOMContentLoaded)
+        function updateAllFieldsValidation() {
+            // Trigger change event on first field to cascade validation
+            const tableTypeSelect = document.getElementById('table-type-select');
+            if (tableTypeSelect) {
+                tableTypeSelect.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        // Clear רכש table codes
+        function clearPurchaseTableCodes() {
+            const fields = ['row1_purchase', 'row1_drawing', 'row2_purchase', 'row2_drawing', 
+                           'row3_purchase', 'row3_drawing'];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.value = '';
+                    el.style.width = '80px';
+                }
+            });
+            const row3Qty = document.getElementById('row3_qty');
+            if (row3Qty) row3Qty.value = '1';
+        }
+
+        function generateProductionCode() {
+            // Get all the field values
+            const tableType = document.getElementById('table-type-select').value;
+            const shape = document.getElementById('shape-select').value;
+            const leg = document.getElementById('leg-select').value;
+            const length = document.getElementById('length-select').value;
+            const width = document.getElementById('width-select').value;
+            const woodThickness = document.getElementById('wood-thickness-select').value;
+            const chamfer = document.getElementById('chamfer-select').value;
+            const electricity = document.getElementById('electricity-select').value;
+            const color = document.getElementById('color-select').value;
+
+            // Check if all fields are filled
+            if (!tableType || !shape || !leg || !length || !width || !woodThickness || !chamfer || !electricity || !color) {
+                alert('יש למלא את כל השדות לפני יצירת מקט ייצור');
+                return null;
+            }
+
+            // Build the production code in the new format
+            let code = '';
+            let tableTypeCode = '';
+            let shapeCode = '';
+
+            // Determine DN1 or DN2 based on shape
+            let dnType = '';
+            if (shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל') {
+                dnType = 'DN1';
+            } else if (shape === 'אליפסה' || shape === 'מלבן') {
+                dnType = 'DN2';
+            }
+
+            // Determine shape letter (R, C, F) - always added after size numbers
+            // R = Round (עגול)
+            // C = Square (ריבוע) or Rectangle (מלבן)
+            // F = Rounded Square (ריבוע מעוגל) or Ellipse (אליפסה)
+            let shapeLetter = '';
+            const maxDimension = Math.max(parseInt(length), parseInt(width));
+            
+            if (shape === 'עגול') {
+                shapeLetter = 'R';
+                shapeCode = 'RND';
+            } else if (shape === 'ריבוע') {
+                shapeLetter = 'C';
+                shapeCode = 'SQ';
+            } else if (shape === 'ריבוע מעוגל') {
+                shapeLetter = 'F';
+                shapeCode = 'RSQ';
+            } else if (shape === 'אליפסה') {
+                shapeLetter = 'F';
+                shapeCode = 'ELP';
+            } else if (shape === 'מלבן') {
+                shapeLetter = 'C';
+                shapeCode = 'RECT';
+            }
+            
+            // Size suffix 'S' for larger tables (maxDimension > 120)
+            const sizeSuffix = maxDimension > 120 ? 'S' : '';
+            
+            // Combined shape suffix: shapeLetter + sizeSuffix (e.g., CS, FS, R, RS)
+            const shapeSuffix = shapeLetter + sizeSuffix;
+
+            // Get leg code with size
+            let legUpper = leg.toUpperCase();
+            let legCodeBase = '';
+            if (legUpper === 'KONUS') {
+                legCodeBase = 'KON';
+            } else if (legUpper === 'TUBE') {
+                legCodeBase = 'TUB';
+            } else if (legUpper === 'SAND') {
+                legCodeBase = 'SAN';
+            } else if (legUpper === 'OVAL') {
+                legCodeBase = 'OVA';
+            }
+            
+            // Determine leg size based on table dimensions
+            const legSize = getCorrectLegSize(shape, length, width);
+            const legCode = `${legCodeBase}_${legSize}`;
+
+            // Format dimensions
+            // Production code: meters with 2 digits (e.g., 0808 for 80x80cm = 0.8x0.8m)
+            const lengthCodeMeters = String(Math.floor(length / 10)).padStart(2, '0');
+            const widthCodeMeters = String(Math.floor(width / 10)).padStart(2, '0');
+            const sizeCodeProduction = lengthCodeMeters + widthCodeMeters;
+            
+            // Surface code: centimeters with 3 digits and dash (e.g., 080-080)
+            const lengthCodeCm = String(length).padStart(3, '0');
+            const widthCodeCm = String(width).padStart(3, '0');
+            const sizeCodeSurface = `${lengthCodeCm}-${widthCodeCm}`;
+
+            // Get electricity code (new format: X5, X3, PO, NN)
+            let electricityCode = '';
+            if (electricity === 'גדול (5)') {
+                electricityCode = 'X5';
+            } else if (electricity === 'בינוני (3)') {
+                electricityCode = 'X3';
+            } else if (electricity === 'עיגול קטן (point)') {
+                electricityCode = 'PO';
+            } else if (electricity === 'ללא') {
+                electricityCode = 'NN';
+            }
+
+            // Chamfer code
+            let chamferCode = '';
+            if (chamfer === '0') {
+                chamferCode = 'C0';
+            } else if (chamfer === '4') {
+                chamferCode = 'C4';
+            } else if (chamfer === 'שמאל') {
+                chamferCode = 'CL';
+            } else if (chamfer === 'ימין') {
+                chamferCode = 'CR';
+            }
+
+            // Color code
+            let colorCode = '';
+            if (color === 'לבן') {
+                colorCode = 'WHT';
+            } else if (color === 'שחור') {
+                colorCode = 'BLK';
+            } else if (color === 'עץ טבעי') {
+                colorCode = 'NAT';
+            }
+
+            // Declare legCount variable
+            let legCount = 1;
+
+            // Build code based on table type
+            // Format: LEG_TABLETYPE_SIZESHAPESUFFIX_T##_C#_ELECTRICITY_COLOR
+            // Example: KON_ML3_3514CS_T17_C0_X3_WHT
+            // Shape letters: R=Round, C=Square/Rectangle, F=RoundedSquare/Ellipse
+            // Size suffix: S or SB based on meeting table rules
+            if (tableType === 'קפיטריה') {
+                // Cafeteria format: LEG_DN1/DN2_SIZESHAPE_T##_C#_ELECTRICITY_COLOR
+                code = `${legCodeBase}_${dnType}_${sizeCodeProduction}${shapeSuffix}_T${woodThickness}_${chamferCode}_${electricityCode}_${colorCode}`;
+                tableTypeCode = dnType;
+            } else if (tableType === 'ישיבות') {
+                // Meeting format: LEG_TABLETYPE_SIZESHAPE_T##_C#_ELECTRICITY_COLOR
+                // Get meeting table type and leg count
+                const meetingInfo = getMeetingTableTypeAndLegs(shape, length, width);
+                let meetingType = meetingInfo.type;
+                let meetingLegs = meetingInfo.legs;
+                const meetingSizeSuffix = meetingInfo.sizeSuffix;
+                
+                // Check if user selected a specific leg count (when multiple options available)
+                const legCountSelect = document.getElementById('leg-count-select');
+                if (legCountSelect && legCountSelect.value && meetingInfo.possibleOptions && meetingInfo.possibleOptions.length > 1) {
+                    const selectedLegs = parseInt(legCountSelect.value);
+                    const selectedOption = meetingInfo.possibleOptions.find(opt => opt.legs === selectedLegs);
+                    if (selectedOption) {
+                        meetingType = selectedOption.type;
+                        meetingLegs = selectedOption.legs;
+                    }
+                }
+                
+                // Build final shape suffix: shapeLetter + meetingSizeSuffix (from meeting rules)
+                // e.g., C + S = CS, C + SB = CSB, F + S = FS
+                const finalShapeSuffix = shapeLetter + meetingSizeSuffix;
+                
+                // Format: KON_ML3_3514CS_T17_C0_X3_WHT
+                code = `${legCodeBase}_${meetingType}_${sizeCodeProduction}${finalShapeSuffix}_T${woodThickness}_${chamferCode}_${electricityCode}_${colorCode}`;
+                tableTypeCode = meetingType;
+                legCount = meetingLegs;
+            }
+
+            // Set the production code
+            document.getElementById('bottomFilename').value = code;
+            
+            // Electricity code for רכש table
+            let electricityCodeForTable = electricityCode;
+            
+            // Note: legCount is already set in the meeting table section above
+            // For cafeteria, determine leg count
+            if (tableType === 'קפיטריה') {
+                legCount = (dnType === 'DN1') ? 1 : 2;
+            }
+            
+            // Generate table codes - pass leg count
+            updateTableCodesFromMainCode(code, shapeCode, length, width, woodThickness, chamferCode, legCode, colorCode, tableTypeCode, shape, shapeSuffix, sizeCodeSurface, electricityCodeForTable, legCount);
+            
+            return code;
+        }
+
+        function generateAndSearchPDF() {
+            // Generate the production code
+            const code = generateProductionCode();
+            
+            if (!code) {
+                return; // Error already shown in generateProductionCode
+            }
+            
+            // Show success message
+            showMessage('success', 'מקט ייצור נוצר בהצלחה: ' + code);
+            
+            // Search for PDF with matching code
+            searchForPDFByCode(code);
+        }
+
+        function searchForPDFByCode(productionCode) {
+            // First try to search in Google Drive cache
+            if (driveFilesCache.length > 0) {
+                searchAndLoadFromDrive(productionCode);
+                return;
+            }
+            
+            // Fallback to local loaded files
+            if (!loadedFiles || loadedFiles.length === 0) {
+                showMessage('error', 'No files available. Please connect to Google Drive or upload files manually.');
+                return;
+            }
+
+            // Search for a file that matches the production code in loaded files
+            let foundFile = null;
+            
+            for (let file of loadedFiles) {
+                const fileName = file.name.toUpperCase().replace('.PDF', '');
+                const codeUpper = productionCode.toUpperCase();
+                
+                // Check if the filename contains or matches the production code
+                if (fileName.includes(codeUpper) || codeUpper.includes(fileName)) {
+                    foundFile = file;
+                    break;
+                }
+            }
+
+            if (foundFile) {
+                // Load the found PDF
+                loadPDF(foundFile);
+                showMessage('success', 'Found matching PDF: ' + foundFile.name);
+            } else {
+                showMessage('error', 'No matching PDF found. Please connect to Google Drive or upload the correct file.');
+            }
+        }
+
+        function updateTableCodesFromMainCode(mainCode, shapeCode, length, width, woodThickness, chamferCode, legCode, colorCode, tableTypeCode, shape, shapeSuffix, sizeCode, electricityCode, legCount) {
+            const row1Purchase = document.getElementById('row1_purchase');
+            const row1Drawing = document.getElementById('row1_drawing');
+            const row2Purchase = document.getElementById('row2_purchase');
+            const row2Drawing = document.getElementById('row2_drawing');
+            const row3Purchase = document.getElementById('row3_purchase');
+            const row3Drawing = document.getElementById('row3_drawing');
+            const row3Desc = document.getElementById('row3_desc');
+            const row3Qty = document.getElementById('row3_qty');
+            
+            // Check if this is a cafeteria table (DN1 or DN2)
+            const isCafeteria = tableTypeCode === 'DN1' || tableTypeCode === 'DN2';
+            
+            // Check if this is a meeting table (MS/ML/EL prefixes)
+            const isMeeting = tableTypeCode.startsWith('MS') || tableTypeCode.startsWith('ML') || tableTypeCode.startsWith('EL');
+            
+            if (isCafeteria) {
+                // CAFETERIA FORMAT
+                // For cafeteria, if no electricity hole (NN), default to PO (smallest option)
+                const supportElectricity = electricityCode === 'NN' ? 'PO' : electricityCode;
+                
+                // Row 1: משטח עליון - W_SIZESHAPE_T##_C#_ELECTRICITY_COLOR
+                const topSurfaceCode = `W_${sizeCode}${shapeSuffix}_T${woodThickness}_${chamferCode}_${electricityCode}_${colorCode}`;
+                if (row1Purchase) {
+                    row1Purchase.value = topSurfaceCode;
+                    row1Purchase.style.width = ((topSurfaceCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row1Drawing) {
+                    const row1DrawingCode = `${topSurfaceCode}_01`;
+                    row1Drawing.value = row1DrawingCode;
+                    row1Drawing.style.width = ((row1DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 2: משטח תומך - W_SIZESHAPE_T17_C0_ELECTRICITY_BLK
+                // 30cm smaller, black, no chamfer, WITH electricity hole matching top plate
+                // Uses SAME SHAPE as top plate (not always C)
+                const supportLength = parseInt(length) - 30;
+                const supportWidth = parseInt(width) - 30;
+                const supportLengthCode = String(supportLength).padStart(3, '0');
+                const supportWidthCode = String(supportWidth).padStart(3, '0');
+                const supportSizeCode = `${supportLengthCode}-${supportWidthCode}`;
+                
+                // Support plate uses same shape suffix as top plate
+                const supportCode = `W_${supportSizeCode}${shapeSuffix}_T17_C0_${supportElectricity}_BLK`;
+                if (row2Purchase) {
+                    row2Purchase.value = supportCode;
+                    row2Purchase.style.width = ((supportCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row2Drawing) {
+                    const row2DrawingCode = `${supportCode}_01`;
+                    row2Drawing.value = row2DrawingCode;
+                    row2Drawing.style.width = ((row2DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 3: רגל - LEGCODE_E0 for cafeteria
+                const legPurchaseCode = `${legCode}E0`;
+                if (row3Purchase) {
+                    row3Purchase.value = legPurchaseCode;
+                    row3Purchase.style.width = ((legPurchaseCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row3Drawing) {
+                    const row3DrawingCode = `${legPurchaseCode}_01`;
+                    row3Drawing.value = row3DrawingCode;
+                    row3Drawing.style.width = ((row3DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row3Desc) {
+                    row3Desc.value = `רגל ${legCode}`;
+                    row3Desc.style.width = ((row3Desc.value.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Set leg quantity
+                if (row3Qty) {
+                    row3Qty.value = legCount.toString();
+                }
+                
+            } else if (isMeeting) {
+                // MEETING TABLE FORMAT
+                // Row 1: משטח עליון - W_LENGTHxWIDTH_T##_C#_X#_COLOR
+                // Example: W_270X140_T17_C4_X5_BLK
+                const topSurfaceCode = `W_${length}X${width}_T${woodThickness}_${chamferCode}_${electricityCode}_${colorCode}`;
+                if (row1Purchase) {
+                    row1Purchase.value = topSurfaceCode;
+                    row1Purchase.style.width = ((topSurfaceCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row1Drawing) {
+                    const row1DrawingCode = `${topSurfaceCode}_01`;
+                    row1Drawing.value = row1DrawingCode;
+                    row1Drawing.style.width = ((row1DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 2: משטח תומך - W_LENGTHxWIDTH_T17_C0_X#_BLK (30cm smaller)
+                const supportLength = parseInt(length) - 30;
+                const supportWidth = parseInt(width) - 30;
+                const supportCode = `W_${supportLength}X${supportWidth}_T17_C0_${electricityCode}_BLK`;
+                if (row2Purchase) {
+                    row2Purchase.value = supportCode;
+                    row2Purchase.style.width = ((supportCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row2Drawing) {
+                    const row2DrawingCode = `${supportCode}_01`;
+                    row2Drawing.value = row2DrawingCode;
+                    row2Drawing.style.width = ((row2DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 3: רגל - LEGCODE_E# for meeting tables
+                // E1 for 1 leg, E2 for 2 legs, E3+E2 for 3 legs
+                let legPurchaseCode = '';
+                let legDescription = '';
+                let legQuantity = '';
+                
+                if (legCount === 1) {
+                    legPurchaseCode = `${legCode}E1`;
+                    legDescription = `רגל ${legCode}`;
+                    legQuantity = '1';
+                } else if (legCount === 2) {
+                    legPurchaseCode = `${legCode}E2`;
+                    legDescription = `רגל ${legCode}`;
+                    legQuantity = '2';
+                } else if (legCount === 3) {
+                    // 3 legs: 1x E3 + 2x E2
+                    legPurchaseCode = `${legCode}E3 (1x) + ${legCode}E2 (2x)`;
+                    legDescription = `רגל ${legCode}`;
+                    legQuantity = '3';
+                }
+                
+                if (row3Purchase) {
+                    row3Purchase.value = legPurchaseCode;
+                    row3Purchase.style.width = ((legPurchaseCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row3Drawing) {
+                    const row3DrawingCode = legCount === 3 ? 
+                        `${legCode}E3_01 + ${legCode}E2_01` : 
+                        `${legPurchaseCode}_01`;
+                    row3Drawing.value = row3DrawingCode;
+                    row3Drawing.style.width = ((row3DrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+                
+                if (row3Desc) {
+                    row3Desc.value = legDescription;
+                    row3Desc.style.width = ((legDescription.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Set leg quantity
+                if (row3Qty) {
+                    row3Qty.value = legQuantity;
+                }
+            }
+        }
+
+        function parseAndUpdateFromMainCode() {
+            const mainCode = document.getElementById('bottomFilename').value.trim().toUpperCase();
+            
+            // If empty, clear the purchase table
+            if (!mainCode) {
+                clearPurchaseTableCodes();
+                return;
+            }
+            
+            // Validate the production code
+            const validation = validateProductionCode(mainCode);
+            
+            if (!validation.valid) {
+                // Invalid code - clear purchase table and log errors
+                clearPurchaseTableCodes();
+                console.log('Invalid production code:', validation.errors);
+                return;
+            }
+            
+            // Valid code - update דגם table and רכש table
+            const parsed = validation.parsed;
+            
+            // Update דגם table to match the code
+            updateModelTableFromCode(parsed);
+            
+            // Now generate the רכש table codes
+            const legSize = getCorrectLegSize(parsed.shape, parsed.length, parsed.width);
+            const legCode = `${parsed.legCodeBase}_${legSize}`;
+            
+            // Determine leg count from table type
+            let legCount = 1;
+            if (parsed.tableTypeCode.endsWith('1')) legCount = 1;
+            else if (parsed.tableTypeCode.endsWith('2')) legCount = 2;
+            else if (parsed.tableTypeCode.endsWith('3')) legCount = 3;
+            if (parsed.tableTypeCode === 'DN2') legCount = 2;
+            
+            // Get references to table fields
+            const row1Purchase = document.getElementById('row1_purchase');
+            const row1Drawing = document.getElementById('row1_drawing');
+            const row2Purchase = document.getElementById('row2_purchase');
+            const row2Drawing = document.getElementById('row2_drawing');
+            const row3Purchase = document.getElementById('row3_purchase');
+            const row3Drawing = document.getElementById('row3_drawing');
+            const row3Desc = document.getElementById('row3_desc');
+            const row3Qty = document.getElementById('row3_qty');
+            
+            if (parsed.isCafeteria) {
+                // CAFETERIA FORMAT
+                const supportElectricity = parsed.electricityCode === 'NN' ? 'PO' : parsed.electricityCode;
+                const shapeSuffix = parsed.shapeLetter + parsed.sizeSuffix;
+                
+                // Row 1: משטח עליון
+                const lengthCm = String(parsed.length).padStart(3, '0');
+                const widthCm = String(parsed.width).padStart(3, '0');
+                const sizeCodeSurface = `${lengthCm}-${widthCm}`;
+                const topSurfaceCode = `W_${sizeCodeSurface}${shapeSuffix}_T${parsed.woodThickness}_${parsed.chamferCode}_${parsed.electricityCode}_${parsed.colorCode}`;
+                if (row1Purchase) {
+                    row1Purchase.value = topSurfaceCode;
+                    row1Purchase.style.width = ((topSurfaceCode.length + 2) * 7 + 10) + 'px';
+                }
+                if (row1Drawing) {
+                    row1Drawing.value = `${topSurfaceCode}_01`;
+                    row1Drawing.style.width = ((row1Drawing.value.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 2: משטח תומך (30cm smaller)
+                const supportLength = parsed.length - 30;
+                const supportWidth = parsed.width - 30;
+                const supportLengthCm = String(supportLength).padStart(3, '0');
+                const supportWidthCm = String(supportWidth).padStart(3, '0');
+                const supportSizeCode = `${supportLengthCm}-${supportWidthCm}`;
+                const supportCode = `W_${supportSizeCode}${shapeSuffix}_T17_C0_${supportElectricity}_BLK`;
+                if (row2Purchase) {
+                    row2Purchase.value = supportCode;
+                    row2Purchase.style.width = ((supportCode.length + 2) * 7 + 10) + 'px';
+                }
+                if (row2Drawing) {
+                    row2Drawing.value = `${supportCode}_01`;
+                    row2Drawing.style.width = ((row2Drawing.value.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 3: רגל - E0 for cafeteria
+                const legPurchaseCode = `${legCode}E0`;
+                if (row3Purchase) {
+                    row3Purchase.value = legPurchaseCode;
+                    row3Purchase.style.width = ((legPurchaseCode.length + 2) * 7 + 10) + 'px';
+                }
+                if (row3Drawing) {
+                    row3Drawing.value = `${legPurchaseCode}_01`;
+                    row3Drawing.style.width = ((row3Drawing.value.length + 2) * 7 + 10) + 'px';
+                }
+                if (row3Desc) {
+                    row3Desc.value = `רגל ${legCode}`;
+                    row3Desc.style.width = ((row3Desc.value.length + 2) * 7 + 10) + 'px';
+                }
+                if (row3Qty) {
+                    row3Qty.value = legCount.toString();
+                }
+                
+            } else if (parsed.isMeeting) {
+                // MEETING TABLE FORMAT
+                // Row 1: משטח עליון - W_LENGTHxWIDTH_T##_C#_X#_COLOR
+                const topSurfaceCode = `W_${parsed.length}X${parsed.width}_T${parsed.woodThickness}_${parsed.chamferCode}_${parsed.electricityCode}_${parsed.colorCode}`;
+                if (row1Purchase) {
+                    row1Purchase.value = topSurfaceCode;
+                    row1Purchase.style.width = ((topSurfaceCode.length + 2) * 7 + 10) + 'px';
+                }
+                if (row1Drawing) {
+                    row1Drawing.value = `${topSurfaceCode}_01`;
+                    row1Drawing.style.width = ((row1Drawing.value.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 2: משטח תומך (30cm smaller)
+                const supportLength = parsed.length - 30;
+                const supportWidth = parsed.width - 30;
+                const supportCode = `W_${supportLength}X${supportWidth}_T17_C0_${parsed.electricityCode}_BLK`;
+                if (row2Purchase) {
+                    row2Purchase.value = supportCode;
+                    row2Purchase.style.width = ((supportCode.length + 2) * 7 + 10) + 'px';
+                }
+                if (row2Drawing) {
+                    row2Drawing.value = `${supportCode}_01`;
+                    row2Drawing.style.width = ((row2Drawing.value.length + 2) * 7 + 10) + 'px';
+                }
+                
+                // Row 3: רגל - E1, E2, or E3+E2
+                let legPurchaseCode = '';
+                let legDrawingCode = '';
+                
+                if (legCount === 1) {
+                    legPurchaseCode = `${legCode}E1`;
+                    legDrawingCode = `${legPurchaseCode}_01`;
+                } else if (legCount === 2) {
+                    legPurchaseCode = `${legCode}E2`;
+                    legDrawingCode = `${legPurchaseCode}_01`;
+                } else if (legCount === 3) {
+                    legPurchaseCode = `${legCode}E3 (1x) + ${legCode}E2 (2x)`;
+                    legDrawingCode = `${legCode}E3_01 + ${legCode}E2_01`;
+                }
+                
+                if (row3Purchase) {
+                    row3Purchase.value = legPurchaseCode;
+                    row3Purchase.style.width = ((legPurchaseCode.length + 2) * 7 + 10) + 'px';
+                }
+                if (row3Drawing) {
+                    row3Drawing.value = legDrawingCode;
+                    row3Drawing.style.width = ((legDrawingCode.length + 2) * 7 + 10) + 'px';
+                }
+                if (row3Desc) {
+                    row3Desc.value = `רגל ${legCode}`;
+                    row3Desc.style.width = ((row3Desc.value.length + 2) * 7 + 10) + 'px';
+                }
+                if (row3Qty) {
+                    row3Qty.value = legCount.toString();
+                }
+            }
+            
+            console.log('Valid code - updated דגם and רכש tables:', parsed);
+        }
+
+        // Add event listener to the main production code field
+        document.getElementById('bottomFilename').addEventListener('input', parseAndUpdateFromMainCode);
+
+        document.getElementById('productCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProduct();
+            }
+        });
+
+        // Round and square table logic - sync length and width
+        document.addEventListener('DOMContentLoaded', function() {
+            const shapeSelect = document.getElementById('shape-select');
+            const lengthSelect = document.getElementById('length-select');
+            const widthSelect = document.getElementById('width-select');
+            const tableTypeSelect = document.getElementById('table-type-select');
+            const electricitySelect = document.getElementById('electricity-select');
+            const legCountSelect = document.getElementById('leg-count-select');
+            const legCountRow = document.getElementById('leg-count-row');
+
+            let lengthHandler, widthHandler;
+
+            // Store all width and length options
+            const allWidthOptions = Array.from(widthSelect.options).map(opt => ({
+                value: opt.value,
+                text: opt.text
+            }));
+            
+            const allLengthOptions = Array.from(lengthSelect.options).map(opt => ({
+                value: opt.value,
+                text: opt.text
+            }));
+
+            // Sequential validation and color coding - DEFINE FIRST
+            const formFields = [
+                { id: 'table-type-select', name: 'Table Type' },
+                { id: 'shape-select', name: 'Shape' },
+                { id: 'leg-select', name: 'Leg' },
+                { id: 'length-select', name: 'Length' },
+                { id: 'width-select', name: 'Width' },
+                { id: 'leg-count-select', name: 'Leg Count', optional: true },
+                { id: 'wood-thickness-select', name: 'Wood Thickness' },
+                { id: 'chamfer-select', name: 'Chamfer' },
+                { id: 'electricity-select', name: 'Electricity' },
+                { id: 'color-select', name: 'Color' }
+            ];
+            
+            // Update leg count options based on current selection
+            function updateLegCountOptions() {
+                const tableType = tableTypeSelect ? tableTypeSelect.value : '';
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const length = lengthSelect ? lengthSelect.value : '';
+                const width = widthSelect ? widthSelect.value : '';
+                
+                // Only show for meeting tables with rectangle/ellipse
+                if (tableType !== 'ישיבות' || !shape || !length || !width) {
+                    legCountRow.style.display = 'none';
+                    legCountSelect.value = '';
+                    return;
+                }
+                
+                // Get meeting info to check for multiple options
+                const meetingInfo = getMeetingTableTypeAndLegs(shape, length, width);
+                
+                if (meetingInfo.possibleOptions && meetingInfo.possibleOptions.length > 1) {
+                    // Show leg count selector with options
+                    legCountRow.style.display = '';
+                    legCountSelect.innerHTML = '<option value="">בחר...</option>';
+                    
+                    meetingInfo.possibleOptions.forEach(opt => {
+                        const option = document.createElement('option');
+                        option.value = opt.legs;
+                        option.text = `${opt.legs} רגליים (${opt.type})`;
+                        legCountSelect.appendChild(option);
+                    });
+                    
+                    // Default to first option
+                    legCountSelect.value = meetingInfo.legs;
+                } else {
+                    // Hide leg count selector - only one option
+                    legCountRow.style.display = 'none';
+                    legCountSelect.value = '';
+                }
+            }
+
+            function updateFieldValidation() {
+                let allPreviousFilled = true;
+                let allFieldsFilled = true;
+
+                formFields.forEach((field, index) => {
+                    const element = document.getElementById(field.id);
+                    if (!element) return;
+                    
+                    // Skip optional fields that are hidden (like leg-count-select)
+                    if (field.optional) {
+                        const row = document.getElementById('leg-count-row');
+                        if (row && row.style.display === 'none') {
+                            element.classList.remove('required-field', 'valid-field');
+                            return; // Skip this field entirely
+                        }
+                    }
+
+                    // For the first field, always enable it
+                    if (index === 0) {
+                        element.disabled = false;
+                        if (element.value === '') {
+                            element.classList.add('required-field');
+                            element.classList.remove('valid-field');
+                            allPreviousFilled = false;
+                            allFieldsFilled = false;
+                        } else {
+                            element.classList.add('valid-field');
+                            element.classList.remove('required-field');
+                        }
+                    } else {
+                        // For other fields, check if all previous fields are filled
+                        if (allPreviousFilled) {
+                            // Special case: electricity is auto-filled for cafeteria
+                            const isElectricityAutofilled = (field.id === 'electricity-select' && 
+                                                             tableTypeSelect && 
+                                                             tableTypeSelect.value === 'קפיטריה');
+                            
+                            if (!isElectricityAutofilled) {
+                                element.disabled = false;
+                            }
+                            
+                            // Apply color coding
+                            if (element.value === '') {
+                                element.classList.add('required-field');
+                                element.classList.remove('valid-field');
+                                // Optional fields don't block progression
+                                if (!field.optional) {
+                                    allPreviousFilled = false;
+                                    allFieldsFilled = false;
+                                }
+                            } else {
+                                element.classList.add('valid-field');
+                                element.classList.remove('required-field');
+                            }
+                        } else {
+                            // This field should be disabled because previous fields aren't filled
+                            element.disabled = true;
+                            element.classList.remove('required-field', 'valid-field');
+                            // Don't clear electricity if it's auto-filled for cafeteria
+                            if (field.id !== 'electricity-select' || !tableTypeSelect || tableTypeSelect.value !== 'קפיטריה') {
+                                element.value = '';
+                            }
+                            allFieldsFilled = false;
+                        }
+                    }
+                });
+
+                // Enable/disable the generate button
+                const generateBtn = document.getElementById('generateCodeBtn');
+                if (generateBtn) {
+                    if (allFieldsFilled) {
+                        generateBtn.disabled = false;
+                        generateBtn.style.opacity = '1';
+                        generateBtn.style.cursor = 'pointer';
+                    } else {
+                        generateBtn.disabled = true;
+                        generateBtn.style.opacity = '0.5';
+                        generateBtn.style.cursor = 'not-allowed';
+                    }
+                }
+            }
+
+            function getShapeLimits() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                
+                if (shape === 'ריבוע') { // Square
+                    return { min: 80, max: 120 };
+                } else if (shape === 'ריבוע מעוגל') { // Rounded Square
+                    return { min: 80, max: 170 };
+                } else if (shape === 'עגול') { // Round
+                    return { min: 80, max: 180 };
+                }
+                return { min: 0, max: 999 };
+            }
+
+            // Update leg type display based on size (uses global getCorrectLegSize)
+            function updateLegTypeInfo() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const length = lengthSelect ? lengthSelect.value : '';
+                const width = widthSelect ? widthSelect.value : '';
+                
+                if (!shape || !length || !width) {
+                    return;
+                }
+                
+                const legSize = getCorrectLegSize(shape, length, width);
+                const legType = document.getElementById('leg-select').value;
+                
+                // Show info message about required leg size
+                if (legType) {
+                    const legTypeUpper = legType.toUpperCase();
+                    const legCode = legTypeUpper === 'KONUS' ? 'KON' : 
+                                   legTypeUpper === 'SAND' ? 'SAN' : 
+                                   legTypeUpper === 'TUBE' ? 'TUB' : 'OVA';
+                    const fullLegCode = `${legCode}_${legSize}`;
+                    
+                    // You can add a visual indicator here if needed
+                    console.log(`Recommended leg: ${fullLegCode}`);
+                }
+            }
+            
+            // getMeetingTableTypeAndLegs is now defined globally above
+
+            function filterWidthOptions() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const tableType = tableTypeSelect ? tableTypeSelect.value : '';
+                const isRoundOrSquare = shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל';
+                const isRectOrEllipse = shape === 'מלבן' || shape === 'אליפסה';
+                const lengthVal = parseInt(lengthSelect.value) || 0;
+                const currentWidthVal = widthSelect.value;
+                const limits = getShapeLimits();
+                
+                // Get valid widths for meeting tables (rectangle/ellipse)
+                let validMeetingWidths = null;
+                if (tableType === 'ישיבות' && isRectOrEllipse && lengthVal > 0) {
+                    validMeetingWidths = getValidWidthsForLength(shape, lengthVal);
+                }
+                
+                // Clear current options
+                widthSelect.innerHTML = '';
+                
+                // Add filtered options
+                allWidthOptions.forEach(opt => {
+                    const optVal = parseInt(opt.value) || 0;
+                    const withinLimits = opt.value === '' || (optVal >= limits.min && optVal <= limits.max);
+                    
+                    // For round/square, show all options within limits
+                    // For rectangular/ellipse cafeteria, show only options smaller than length
+                    // For rectangular/ellipse meeting, show only valid meeting combinations
+                    let shouldShow = false;
+                    
+                    if (opt.value === '') {
+                        shouldShow = true;
+                    } else if (isRoundOrSquare) {
+                        shouldShow = withinLimits;
+                    } else if (tableType === 'ישיבות' && isRectOrEllipse && validMeetingWidths) {
+                        // Meeting table - use valid combinations
+                        shouldShow = validMeetingWidths.has(optVal);
+                    } else {
+                        // Cafeteria or no table type selected
+                        shouldShow = withinLimits && optVal < lengthVal;
+                    }
+                    
+                    if (shouldShow) {
+                        const option = document.createElement('option');
+                        option.value = opt.value;
+                        option.text = opt.text;
+                        widthSelect.appendChild(option);
+                    }
+                });
+                
+                // Restore selection if still valid
+                const currentWidthInt = parseInt(currentWidthVal);
+                let selectionValid = false;
+                
+                if (isRoundOrSquare) {
+                    selectionValid = currentWidthInt >= limits.min && currentWidthInt <= limits.max;
+                } else if (tableType === 'ישיבות' && isRectOrEllipse && validMeetingWidths) {
+                    selectionValid = validMeetingWidths.has(currentWidthInt);
+                } else {
+                    selectionValid = currentWidthInt < lengthVal && currentWidthInt >= limits.min && currentWidthInt <= limits.max;
+                }
+                
+                widthSelect.value = selectionValid ? currentWidthVal : '';
+                
+                // Update leg count options after width changes
+                updateLegCountOptions();
+            }
+            
+            function filterLengthOptions() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const tableType = tableTypeSelect ? tableTypeSelect.value : '';
+                const isRoundOrSquare = shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל';
+                const isRectOrEllipse = shape === 'מלבן' || shape === 'אליפסה';
+                const widthVal = parseInt(widthSelect.value) || 0;
+                const currentLengthVal = lengthSelect.value;
+                const limits = getShapeLimits();
+                
+                // Get valid lengths for meeting tables (rectangle/ellipse)
+                let validMeetingLengths = null;
+                if (tableType === 'ישיבות' && isRectOrEllipse && widthVal > 0) {
+                    validMeetingLengths = getValidLengthsForWidth(shape, widthVal);
+                }
+                
+                // Clear current options
+                lengthSelect.innerHTML = '';
+                
+                // Add filtered options
+                allLengthOptions.forEach(opt => {
+                    const optVal = parseInt(opt.value) || 0;
+                    const withinLimits = opt.value === '' || (optVal >= limits.min && optVal <= limits.max);
+                    
+                    // For round/square, show all options within limits
+                    // For rectangular/ellipse cafeteria, show only options larger than width
+                    // For rectangular/ellipse meeting, show only valid meeting combinations
+                    let shouldShow = false;
+                    
+                    if (opt.value === '') {
+                        shouldShow = true;
+                    } else if (isRoundOrSquare) {
+                        shouldShow = withinLimits;
+                    } else if (tableType === 'ישיבות' && isRectOrEllipse) {
+                        // Meeting table - show lengths that have at least one valid width
+                        // Check if this length has any valid width combinations
+                        const validWidthsForThisLength = getValidWidthsForLength(shape, optVal);
+                        shouldShow = validWidthsForThisLength && validWidthsForThisLength.size > 0;
+                    } else {
+                        // Cafeteria or no table type selected
+                        shouldShow = withinLimits && optVal > widthVal;
+                    }
+                    
+                    if (shouldShow) {
+                        const option = document.createElement('option');
+                        option.value = opt.value;
+                        option.text = opt.text;
+                        lengthSelect.appendChild(option);
+                    }
+                });
+                
+                // Restore selection if still valid
+                const currentLengthInt = parseInt(currentLengthVal);
+                let selectionValid = false;
+                
+                if (isRoundOrSquare) {
+                    selectionValid = currentLengthInt >= limits.min && currentLengthInt <= limits.max;
+                } else if (tableType === 'ישיבות' && isRectOrEllipse) {
+                    // Check if current selection has valid width combinations
+                    const validWidthsForLength = getValidWidthsForLength(shape, currentLengthInt);
+                    selectionValid = validWidthsForLength && validWidthsForLength.size > 0;
+                } else {
+                    selectionValid = currentLengthInt > widthVal && currentLengthInt >= limits.min && currentLengthInt <= limits.max;
+                }
+                
+                lengthSelect.value = selectionValid ? currentLengthVal : '';
+                
+                // Update leg count options after length changes
+                updateLegCountOptions();
+            }
+
+            function syncDimensions() {
+                const shape = shapeSelect ? shapeSelect.value : '';
+                const shouldSync = shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל';
+                
+                if (shouldSync && lengthSelect && widthSelect) {
+                    // When shape becomes round or square, sync to the smaller value
+                    const lengthVal = parseInt(lengthSelect.value) || 0;
+                    const widthVal = parseInt(widthSelect.value) || 0;
+                    
+                    if (lengthVal > 0 && widthVal > 0 && lengthVal !== widthVal) {
+                        // Sync to the smaller value
+                        const smallerValue = Math.min(lengthVal, widthVal).toString();
+                        lengthSelect.value = smallerValue;
+                        widthSelect.value = smallerValue;
+                    } else if (lengthVal > 0) {
+                        // Only length has value, sync width to it
+                        widthSelect.value = lengthVal.toString();
+                    } else if (widthVal > 0) {
+                        // Only width has value, sync length to it
+                        lengthSelect.value = widthVal.toString();
+                    }
+                }
+            }
+
+            // Electricity logic based on table type
+            function handleElectricityOptions() {
+                if (!tableTypeSelect || !electricitySelect) return;
+                
+                const tableType = tableTypeSelect.value;
+                
+                if (tableType === 'קפיטריה') {
+                    // Always set to ללא for cafeteria and disable
+                    electricitySelect.value = 'ללא';
+                    electricitySelect.disabled = true;
+                    // Make it green since it's auto-filled
+                    electricitySelect.classList.add('valid-field');
+                    electricitySelect.classList.remove('required-field');
+                } else if (tableType === 'ישיבות') {
+                    // Cannot be ללא for meetings
+                    electricitySelect.disabled = false;
+                    if (electricitySelect.value === 'ללא') {
+                        electricitySelect.value = '';
+                    }
+                } else {
+                    // No table type selected
+                    electricitySelect.disabled = false;
+                    electricitySelect.value = '';
+                }
+                
+                // Update validation after changing electricity
+                updateFieldValidation();
+            }
+
+            if (lengthSelect && widthSelect) {
+                lengthSelect.addEventListener('change', function() {
+                    const shape = shapeSelect ? shapeSelect.value : '';
+                    if (shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל') {
+                        widthSelect.value = this.value;
+                    } else {
+                        filterWidthOptions();
+                    }
+                    updateFieldValidation();
+                });
+                
+                widthSelect.addEventListener('change', function() {
+                    const shape = shapeSelect ? shapeSelect.value : '';
+                    if (shape === 'עגול' || shape === 'ריבוע' || shape === 'ריבוע מעוגל') {
+                        lengthSelect.value = this.value;
+                    } else {
+                        filterLengthOptions();
+                    }
+                    updateFieldValidation();
+                });
+                
+                filterWidthOptions();
+            }
+
+            if (shapeSelect) {
+                shapeSelect.addEventListener('change', function() {
+                    // Refilter both dropdowns when shape changes
+                    filterWidthOptions();
+                    filterLengthOptions();
+                    syncDimensions();
+                    updateFieldValidation();
+                });
+                syncDimensions();
+            }
+
+            if (tableTypeSelect) {
+                tableTypeSelect.addEventListener('change', function() {
+                    handleElectricityOptions();
+                    // Refilter length and width options when table type changes (for meeting restrictions)
+                    filterLengthOptions();
+                    filterWidthOptions();
+                    updateLegCountOptions();
+                    updateFieldValidation();
+                });
+                handleElectricityOptions();
+            }
+            
+            // Leg count selector change listener
+            if (legCountSelect) {
+                legCountSelect.addEventListener('change', function() {
+                    updateFieldValidation();
+                });
+            }
+
+            // Prevent selecting ללא for ישיבות
+            if (electricitySelect && tableTypeSelect) {
+                electricitySelect.addEventListener('change', function() {
+                    if (tableTypeSelect.value === 'ישיבות' && this.value === 'ללא') {
+                        alert('לא ניתן לבחור "ללא" עבור שולחן ישיבות');
+                        this.value = '';
+                    }
+                    updateFieldValidation();
+                });
+            }
+
+            // Add change listeners to all form fields
+            formFields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (element) {
+                    element.addEventListener('change', updateFieldValidation);
+                }
+            });
+
+            // Initial validation - all fields should start as red
+            updateFieldValidation();
+        });
+    </script>
+</body>
+</html>
+                    
